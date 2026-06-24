@@ -18,9 +18,9 @@ class ClientPortalSeeder extends Seeder
      */
     public function run(): void
     {
-        $creator = User::query()->first() ?? User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        $creator = User::role('admin')->first() ?? User::query()->first() ?? User::factory()->create([
+            'name' => 'Admin User',
+            'email' => 'admin@example.com',
         ]);
 
         Client::factory()
