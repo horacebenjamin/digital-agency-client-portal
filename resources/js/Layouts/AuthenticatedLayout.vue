@@ -47,6 +47,31 @@ const showingNavigationDropdown = ref(false);
                                 >
                                     My Projects
                                 </NavLink>
+                                <NavLink
+                                    :href="route('client.notifications.index')"
+                                    :active="
+                                        route().current(
+                                            'client.notifications.*',
+                                        )
+                                    "
+                                >
+                                    <span class="inline-flex items-center gap-2">
+                                        Notifications
+                                        <span
+                                            v-if="
+                                                $page.props.auth
+                                                    .unreadNotificationsCount >
+                                                0
+                                            "
+                                            class="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-200"
+                                        >
+                                            {{
+                                                $page.props.auth
+                                                    .unreadNotificationsCount
+                                            }}
+                                        </span>
+                                    </span>
+                                </NavLink>
                             </div>
                         </div>
 
@@ -159,6 +184,25 @@ const showingNavigationDropdown = ref(false);
                             :active="route().current('client.projects.*')"
                         >
                             My Projects
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            :href="route('client.notifications.index')"
+                            :active="
+                                route().current('client.notifications.*')
+                            "
+                        >
+                            Notifications
+                            <span
+                                v-if="
+                                    $page.props.auth.unreadNotificationsCount >
+                                    0
+                                "
+                                class="ms-2 rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-200"
+                            >
+                                {{
+                                    $page.props.auth.unreadNotificationsCount
+                                }}
+                            </span>
                         </ResponsiveNavLink>
                     </div>
 

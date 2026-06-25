@@ -38,7 +38,10 @@ class ClientProjectController extends Controller
 
         $project->load([
             'files' => fn ($query) => $query->latest(),
-            'updates' => fn ($query) => $query->latest()->limit(5),
+            'updates' => fn ($query) => $query
+                ->where('status', 'published')
+                ->latest()
+                ->limit(5),
         ])->loadCount(['updates', 'files', 'supportTickets']);
 
         return Inertia::render('Client/Projects/Show', [

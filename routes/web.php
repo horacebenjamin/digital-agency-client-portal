@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ClientNotificationController;
 use App\Http\Controllers\ClientProjectController;
 use App\Http\Controllers\ProfileController;
 use App\Models\ProjectFile;
@@ -43,6 +44,8 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/notifications', [ClientNotificationController::class, 'index'])->name('client.notifications.index');
+    Route::patch('/notifications/{notification}/read', [ClientNotificationController::class, 'markAsRead'])->name('client.notifications.read');
     Route::get('/projects', [ClientProjectController::class, 'index'])->name('client.projects.index');
     Route::get('/project-files/{projectFile}/download', [ClientProjectController::class, 'downloadFile'])->name('client.project-files.download');
     Route::get('/projects/{project}', [ClientProjectController::class, 'show'])->name('client.projects.show');

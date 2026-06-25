@@ -95,6 +95,31 @@ class ClientProjectsTest extends TestCase
         Carbon::setTestNow();
     }
 
+    public function test_client_only_sees_published_updates_on_project_details(): void
+    {
+        $client = Client::factory()->create();
+        $user = User::factory()->create(['client_id' => $client->id]);
+        $project = Project::factory()->for($client)->create();
+
+        ProjectUpdate::factory()->for($project)->create([
+            'title' => 'Published milestone',
+            'status' => 'published',
+        ]);
+        ProjectUpdate::factory()->for($project)->create([
+            'title' => 'Internal draft milestone',
+            'status' => 'draft',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('client.projects.show', $project))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('project.updates', 1)
+                ->where('project.updates.0.title', 'Published milestone')
+            )
+            ->assertDontSee('Internal draft milestone');
+    }
+
     public function test_client_cannot_see_updates_for_another_clients_project(): void
     {
         $client = Client::factory()->create();
@@ -105,9 +130,11 @@ class ClientProjectsTest extends TestCase
 
         ProjectUpdate::factory()->for($project)->create([
             'title' => 'Owned project update',
+            'status' => 'published',
         ]);
         ProjectUpdate::factory()->for($otherProject)->create([
             'title' => 'Other client private update',
+            'status' => 'published',
         ]);
 
         $this->actingAs($user)

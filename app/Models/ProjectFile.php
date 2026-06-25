@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\ProjectFileUploaded;
 use Database\Factories\ProjectFileFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -45,6 +46,14 @@ class ProjectFile extends Model
 
             $projectFile->mime_type = $storage->mimeType($projectFile->path);
             $projectFile->size = $storage->size($projectFile->path);
+        });
+
+        static::created(function (ProjectFile $projectFile): void {
+            $projectFile->loadMissing('project.client.users');
+
+            $projectFile->project->client->users
+                ->each
+                ->notify(new ProjectFileUploaded($projectFile));
         });
     }
 

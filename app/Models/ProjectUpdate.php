@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\ProjectUpdatePublished;
 use Database\Factories\ProjectUpdateFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -19,6 +20,21 @@ class ProjectUpdate extends Model
         'body',
         'status',
     ];
+
+    protected static function booted(): void
+    {
+        static::created(function (ProjectUpdate $projectUpdate): void {
+            if ($projectUpdate->status !== 'published') {
+                return;
+            }
+
+            $projectUpdate->loadMissing('project.client.users');
+
+            $projectUpdate->project->client->users
+                ->each
+                ->notify(new ProjectUpdatePublished($projectUpdate));
+        });
+    }
 
     public function project(): BelongsTo
     {
