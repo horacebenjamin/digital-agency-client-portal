@@ -44,6 +44,7 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/projects', [ClientProjectController::class, 'index'])->name('client.projects.index');
+    Route::get('/project-files/{projectFile}/download', [ClientProjectController::class, 'downloadFile'])->name('client.project-files.download');
     Route::get('/projects/{project}', [ClientProjectController::class, 'show'])->name('client.projects.show');
 });
 

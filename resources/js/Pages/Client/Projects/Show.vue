@@ -179,6 +179,52 @@ const updateBadgeClasses = (status) => {
                         <h3
                             class="text-lg font-semibold text-gray-900 dark:text-gray-100"
                         >
+                            Project Files
+                        </h3>
+
+                        <div
+                            v-if="project.files.length === 0"
+                            class="mt-4 rounded-md border border-dashed border-gray-300 p-4 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-400"
+                        >
+                            No files have been uploaded for this project yet.
+                        </div>
+
+                        <div v-else class="mt-4 space-y-4">
+                            <article
+                                v-for="file in project.files"
+                                :key="file.id"
+                                class="rounded-md border border-gray-200 p-4 dark:border-gray-700"
+                            >
+                                <div class="min-w-0">
+                                    <h4
+                                        class="truncate font-semibold text-gray-900 dark:text-gray-100"
+                                    >
+                                        {{ file.name }}
+                                    </h4>
+                                    <p
+                                        class="mt-1 text-sm text-gray-500 dark:text-gray-400"
+                                    >
+                                        {{ file.type || 'File' }} ·
+                                        {{ file.uploaded_date }}
+                                    </p>
+                                </div>
+
+                                <a
+                                    :href="file.download_url"
+                                    class="mt-4 inline-flex items-center rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white"
+                                >
+                                    Download
+                                </a>
+                            </article>
+                        </div>
+                    </section>
+
+                    <section
+                        class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg dark:bg-gray-800"
+                    >
+                        <h3
+                            class="text-lg font-semibold text-gray-900 dark:text-gray-100"
+                        >
                             Overview
                         </h3>
                         <dl class="mt-4 space-y-4 text-sm">

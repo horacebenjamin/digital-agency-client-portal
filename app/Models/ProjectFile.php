@@ -6,6 +6,7 @@ use Database\Factories\ProjectFileFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 
 class ProjectFile extends Model
 {
@@ -22,6 +23,30 @@ class ProjectFile extends Model
         'size',
         'description',
     ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (ProjectFile $projectFile): void {
+            $projectFile->disk = $projectFile->disk ?: 'public';
+
+            if (blank($projectFile->name) && filled($projectFile->path)) {
+                $projectFile->name = basename($projectFile->path);
+            }
+
+            if (blank($projectFile->path)) {
+                return;
+            }
+
+            $storage = Storage::disk($projectFile->disk);
+
+            if (! $storage->exists($projectFile->path)) {
+                return;
+            }
+
+            $projectFile->mime_type = $storage->mimeType($projectFile->path);
+            $projectFile->size = $storage->size($projectFile->path);
+        });
+    }
 
     public function project(): BelongsTo
     {
