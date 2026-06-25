@@ -8,4 +8,9 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateProjectUpdate extends CreateRecord
 {
     protected static string $resource = ProjectUpdateResource::class;
+
+    protected function getRedirectUrl(): string
+    {
+        return static::getResource()::getUrl('index');
+    }
 }
