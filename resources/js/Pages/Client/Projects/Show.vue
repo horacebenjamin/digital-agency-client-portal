@@ -22,6 +22,17 @@ const statusBadgeClasses = (status) => {
         'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
     );
 };
+
+const updateBadgeClasses = (status) => {
+    return (
+        {
+            published:
+                'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
+            draft: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200',
+        }[status] ||
+        'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200'
+    );
+};
 </script>
 
 <template>
@@ -60,48 +71,106 @@ const statusBadgeClasses = (status) => {
             <div
                 class="mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-3 lg:px-8"
             >
-                <section
-                    class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg dark:bg-gray-800 lg:col-span-2"
-                >
-                    <div class="flex items-center justify-between text-sm">
-                        <span
-                            class="font-medium text-gray-700 dark:text-gray-300"
-                        >
-                            Progress
-                        </span>
-                        <span
-                            class="font-semibold text-gray-900 dark:text-gray-100"
-                        >
-                            {{ project.progress_percentage }}%
-                        </span>
-                    </div>
-                    <div
-                        class="mt-2 h-3 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"
+                <div class="space-y-6 lg:col-span-2">
+                    <section
+                        class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg dark:bg-gray-800"
                     >
+                        <div class="flex items-center justify-between text-sm">
+                            <span
+                                class="font-medium text-gray-700 dark:text-gray-300"
+                            >
+                                Progress
+                            </span>
+                            <span
+                                class="font-semibold text-gray-900 dark:text-gray-100"
+                            >
+                                {{ project.progress_percentage }}%
+                            </span>
+                        </div>
                         <div
-                            class="h-full rounded-full bg-indigo-600 dark:bg-indigo-400"
-                            :style="{
-                                width: `${project.progress_percentage}%`,
-                            }"
-                        />
-                    </div>
+                            class="mt-2 h-3 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"
+                        >
+                            <div
+                                class="h-full rounded-full bg-indigo-600 dark:bg-indigo-400"
+                                :style="{
+                                    width: `${project.progress_percentage}%`,
+                                }"
+                            />
+                        </div>
 
-                    <div class="mt-8">
+                        <div class="mt-8">
+                            <h3
+                                class="text-lg font-semibold text-gray-900 dark:text-gray-100"
+                            >
+                                Project Details
+                            </h3>
+                            <p
+                                class="mt-3 whitespace-pre-line text-gray-600 dark:text-gray-400"
+                            >
+                                {{
+                                    project.description ||
+                                    'No description has been added for this project yet.'
+                                }}
+                            </p>
+                        </div>
+                    </section>
+
+                    <section
+                        class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg dark:bg-gray-800"
+                    >
                         <h3
                             class="text-lg font-semibold text-gray-900 dark:text-gray-100"
                         >
-                            Project Details
+                            Latest Updates
                         </h3>
-                        <p
-                            class="mt-3 whitespace-pre-line text-gray-600 dark:text-gray-400"
+
+                        <div
+                            v-if="project.updates.length === 0"
+                            class="mt-4 rounded-md border border-dashed border-gray-300 p-4 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-400"
                         >
-                            {{
-                                project.description ||
-                                'No description has been added for this project yet.'
-                            }}
-                        </p>
-                    </div>
-                </section>
+                            No project updates have been posted yet.
+                        </div>
+
+                        <div v-else class="mt-4 space-y-4">
+                            <article
+                                v-for="update in project.updates"
+                                :key="update.id"
+                                class="border-t border-gray-200 pt-4 first:border-t-0 first:pt-0 dark:border-gray-700"
+                            >
+                                <div
+                                    class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"
+                                >
+                                    <div>
+                                        <h4
+                                            class="font-semibold text-gray-900 dark:text-gray-100"
+                                        >
+                                            {{ update.title }}
+                                        </h4>
+                                        <p
+                                            class="mt-1 text-sm text-gray-500 dark:text-gray-400"
+                                        >
+                                            {{ update.created_date }}
+                                        </p>
+                                    </div>
+                                    <span
+                                        v-if="update.status_label"
+                                        :class="[
+                                            updateBadgeClasses(update.status),
+                                            'w-fit rounded-full px-3 py-1 text-xs font-medium',
+                                        ]"
+                                    >
+                                        {{ update.status_label }}
+                                    </span>
+                                </div>
+                                <p
+                                    class="mt-3 whitespace-pre-line text-sm leading-6 text-gray-600 dark:text-gray-400"
+                                >
+                                    {{ update.summary || update.body }}
+                                </p>
+                            </article>
+                        </div>
+                    </section>
+                </div>
 
                 <aside class="space-y-6">
                     <section
