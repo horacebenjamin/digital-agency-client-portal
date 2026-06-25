@@ -48,6 +48,18 @@ const showingNavigationDropdown = ref(false);
                                     My Projects
                                 </NavLink>
                                 <NavLink
+                                    :href="
+                                        route('client.support-tickets.index')
+                                    "
+                                    :active="
+                                        route().current(
+                                            'client.support-tickets.*',
+                                        )
+                                    "
+                                >
+                                    Support Tickets
+                                </NavLink>
+                                <NavLink
                                     :href="route('client.notifications.index')"
                                     :active="
                                         route().current(
@@ -184,6 +196,14 @@ const showingNavigationDropdown = ref(false);
                             :active="route().current('client.projects.*')"
                         >
                             My Projects
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            :href="route('client.support-tickets.index')"
+                            :active="
+                                route().current('client.support-tickets.*')
+                            "
+                        >
+                            Support Tickets
                         </ResponsiveNavLink>
                         <ResponsiveNavLink
                             :href="route('client.notifications.index')"

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ClientNotificationController;
 use App\Http\Controllers\ClientProjectController;
+use App\Http\Controllers\ClientSupportTicketController;
 use App\Http\Controllers\ProfileController;
 use App\Models\ProjectFile;
 use App\Models\ProjectUpdate;
@@ -49,6 +50,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/projects', [ClientProjectController::class, 'index'])->name('client.projects.index');
     Route::get('/project-files/{projectFile}/download', [ClientProjectController::class, 'downloadFile'])->name('client.project-files.download');
     Route::get('/projects/{project}', [ClientProjectController::class, 'show'])->name('client.projects.show');
+    Route::get('/support-tickets', [ClientSupportTicketController::class, 'index'])->name('client.support-tickets.index');
+    Route::get('/support-tickets/create', [ClientSupportTicketController::class, 'create'])->name('client.support-tickets.create');
+    Route::post('/support-tickets', [ClientSupportTicketController::class, 'store'])->name('client.support-tickets.store');
+    Route::get('/support-tickets/{supportTicket}', [ClientSupportTicketController::class, 'show'])->name('client.support-tickets.show');
+    Route::post('/support-tickets/{supportTicket}/comments', [ClientSupportTicketController::class, 'storeComment'])->name('client.support-tickets.comments.store');
 });
 
 require __DIR__.'/auth.php';
