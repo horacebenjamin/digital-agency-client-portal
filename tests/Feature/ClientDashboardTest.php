@@ -81,7 +81,7 @@ class ClientDashboardTest extends TestCase
                 ->where('summaryCards.1.label', 'Open Support Tickets')
                 ->where('summaryCards.1.value', 2)
                 ->where('summaryCards.2.label', 'Unread Notifications')
-                ->where('summaryCards.2.value', 2)
+                ->where('summaryCards.2.value', 3)
                 ->where('summaryCards.3.label', 'Recent Project Updates')
                 ->where('summaryCards.3.value', 1)
                 ->where('summaryCards.4.label', 'Available Project Files')

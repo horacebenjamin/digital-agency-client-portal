@@ -27,6 +27,7 @@ class ProjectFileUploaded extends Notification
             'type' => 'project_file',
             'title' => 'New project file',
             'body' => $this->projectFile->name,
+            'project_file_id' => $this->projectFile->id,
             'project_id' => $project->id,
             'project_title' => $project->title,
             'url' => route('client.projects.show', $project),

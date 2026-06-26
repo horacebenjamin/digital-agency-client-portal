@@ -27,6 +27,7 @@ class ProjectUpdatePublished extends Notification
             'type' => 'project_update',
             'title' => 'New project update',
             'body' => $this->projectUpdate->title,
+            'project_update_id' => $this->projectUpdate->id,
             'project_id' => $project->id,
             'project_title' => $project->title,
             'url' => route('client.projects.show', $project),

@@ -24,15 +24,15 @@ class ProjectUpdate extends Model
     protected static function booted(): void
     {
         static::created(function (ProjectUpdate $projectUpdate): void {
-            if ($projectUpdate->status !== 'published') {
+            $projectUpdate->notifyClientUsersIfPublished();
+        });
+
+        static::updated(function (ProjectUpdate $projectUpdate): void {
+            if (! $projectUpdate->wasChanged('status')) {
                 return;
             }
 
-            $projectUpdate->loadMissing('project.client.users');
-
-            $projectUpdate->project->client->users
-                ->each
-                ->notify(new ProjectUpdatePublished($projectUpdate));
+            $projectUpdate->notifyClientUsersIfPublished();
         });
     }
 
@@ -44,5 +44,27 @@ class ProjectUpdate extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    private function notifyClientUsersIfPublished(): void
+    {
+        if ($this->status !== 'published') {
+            return;
+        }
+
+        $this->loadMissing('project.client.users');
+
+        $this->project->client->users
+            ->reject(fn (User $user): bool => $this->userAlreadyNotified($user))
+            ->each
+            ->notify(new ProjectUpdatePublished($this));
+    }
+
+    private function userAlreadyNotified(User $user): bool
+    {
+        return $user->notifications()
+            ->where('type', ProjectUpdatePublished::class)
+            ->get()
+            ->contains(fn ($notification): bool => ($notification->data['project_update_id'] ?? null) === $this->id);
     }
 }
