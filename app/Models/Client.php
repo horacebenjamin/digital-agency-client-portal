@@ -31,6 +31,14 @@ class Client extends Model
     }
 
     /**
+     * @return HasMany<PaymentRequest>
+     */
+    public function paymentRequests(): HasMany
+    {
+        return $this->hasMany(PaymentRequest::class);
+    }
+
+    /**
      * @return HasMany<User>
      */
     public function users(): HasMany

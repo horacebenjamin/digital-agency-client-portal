@@ -61,6 +61,11 @@ class Project extends Model
         return $this->hasMany(SupportTicket::class);
     }
 
+    public function paymentRequests(): HasMany
+    {
+        return $this->hasMany(PaymentRequest::class);
+    }
+
     public function files(): HasMany
     {
         return $this->hasMany(ProjectFile::class);
