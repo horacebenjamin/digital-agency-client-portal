@@ -6,6 +6,7 @@ use App\Http\Controllers\ClientNotificationController;
 use App\Http\Controllers\ClientProjectController;
 use App\Http\Controllers\ClientSupportTicketController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\StripeWebhookController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -20,6 +21,8 @@ Route::get('/', function () {
 });
 
 Route::get('/dashboard', ClientDashboardController::class)->middleware(['auth', 'verified'])->name('dashboard');
+
+Route::post('/stripe/webhook', StripeWebhookController::class)->name('stripe.webhook');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
