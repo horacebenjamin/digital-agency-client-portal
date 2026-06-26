@@ -29,6 +29,7 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/billing', [ClientBillingController::class, 'index'])->name('client.billing.index');
+    Route::post('/billing/payment-requests/{paymentRequest}/checkout', [ClientBillingController::class, 'checkout'])->name('client.billing.payment-requests.checkout');
     Route::get('/notifications', [ClientNotificationController::class, 'index'])->name('client.notifications.index');
     Route::patch('/notifications/{notification}/read', [ClientNotificationController::class, 'markAsRead'])->name('client.notifications.read');
     Route::get('/projects', [ClientProjectController::class, 'index'])->name('client.projects.index');

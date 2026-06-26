@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PaymentRequest;
+use App\Services\PaymentRequestCheckoutSessionCreator;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -39,8 +40,29 @@ class ClientBillingController extends Controller
         ]);
     }
 
+    public function checkout(
+        Request $request,
+        PaymentRequest $paymentRequest,
+        PaymentRequestCheckoutSessionCreator $checkoutSessionCreator
+    ): \Symfony\Component\HttpFoundation\Response {
+        abort_unless(
+            $request->user()->client_id
+            && $paymentRequest->client_id === $request->user()->client_id
+            && $paymentRequest->status === 'sent',
+            403
+        );
+
+        $checkoutSession = $checkoutSessionCreator->create($paymentRequest);
+
+        $paymentRequest->update([
+            'stripe_checkout_session_id' => $checkoutSession->id,
+        ]);
+
+        return Inertia::location($checkoutSession->url);
+    }
+
     /**
-     * @return array{id: int, title: string, project_name: string|null, amount: string, status: string, status_label: string, status_badge_classes: string, due_date: string|null, paid_date: string|null, can_pay: bool}
+     * @return array{id: int, title: string, project_name: string|null, amount: string, status: string, status_label: string, status_badge_classes: string, due_date: string|null, paid_date: string|null, can_pay: bool, checkout_url: string}
      */
     private function serializePaymentRequest(PaymentRequest $paymentRequest): array
     {
@@ -55,6 +77,7 @@ class ClientBillingController extends Controller
             'due_date' => $paymentRequest->due_date?->format('M j, Y'),
             'paid_date' => $paymentRequest->paid_at?->format('M j, Y'),
             'can_pay' => $paymentRequest->status === 'sent',
+            'checkout_url' => route('client.billing.payment-requests.checkout', $paymentRequest),
         ];
     }
 

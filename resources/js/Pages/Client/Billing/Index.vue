@@ -1,6 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 
 defineProps({
     outstandingPayments: {
@@ -133,13 +133,15 @@ defineProps({
                                         {{ payment.due_date || 'No due date' }}
                                     </td>
                                     <td class="px-6 py-4 text-right">
-                                        <button
-                                            type="button"
-                                            :disabled="!payment.can_pay"
+                                        <Link
+                                            v-if="payment.can_pay"
+                                            :href="payment.checkout_url"
+                                            method="post"
+                                            as="button"
                                             class="inline-flex items-center rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white"
                                         >
                                             Pay
-                                        </button>
+                                        </Link>
                                     </td>
                                 </tr>
                             </tbody>

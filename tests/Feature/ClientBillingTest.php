@@ -6,9 +6,11 @@ use App\Models\Client;
 use App\Models\PaymentRequest;
 use App\Models\Project;
 use App\Models\User;
+use App\Services\PaymentRequestCheckoutSessionCreator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
+use Mockery\MockInterface;
 use Tests\TestCase;
 
 class ClientBillingTest extends TestCase
@@ -50,6 +52,7 @@ class ClientBillingTest extends TestCase
                 ->where('outstandingPayments.0.status_label', 'Sent')
                 ->where('outstandingPayments.0.due_date', 'Jul 10, 2026')
                 ->where('outstandingPayments.0.can_pay', true)
+                ->where('outstandingPayments.0.checkout_url', route('client.billing.payment-requests.checkout', PaymentRequest::first()))
                 ->has('paidPayments', 0)
             );
 
@@ -122,6 +125,95 @@ class ClientBillingTest extends TestCase
     public function test_unauthenticated_users_are_redirected_to_login(): void
     {
         $this->get(route('client.billing.index'))
+            ->assertRedirect(route('login'));
+    }
+
+    public function test_client_can_start_checkout_for_their_own_sent_payment_request(): void
+    {
+        $client = Client::factory()->create();
+        $user = User::factory()->for($client)->create();
+        $project = Project::factory()->for($client)->create();
+        $paymentRequest = PaymentRequest::factory()->for($client)->for($project)->create([
+            'title' => 'Website deposit',
+            'amount' => 125000,
+            'currency' => 'gbp',
+            'status' => 'sent',
+        ]);
+
+        $this->mock(PaymentRequestCheckoutSessionCreator::class, function (MockInterface $mock) use ($paymentRequest) {
+            $mock->shouldReceive('create')
+                ->once()
+                ->withArgs(fn (PaymentRequest $request): bool => $request->is($paymentRequest))
+                ->andReturn((object) [
+                    'id' => 'cs_test_123',
+                    'url' => 'https://checkout.stripe.test/session',
+                ]);
+        });
+
+        $this->actingAs($user)
+            ->withHeader('X-Inertia', 'true')
+            ->post(route('client.billing.payment-requests.checkout', $paymentRequest))
+            ->assertStatus(409)
+            ->assertHeader('X-Inertia-Location', 'https://checkout.stripe.test/session');
+
+        $this->assertDatabaseHas('payment_requests', [
+            'id' => $paymentRequest->id,
+            'status' => 'sent',
+            'stripe_checkout_session_id' => 'cs_test_123',
+        ]);
+    }
+
+    public function test_client_cannot_start_checkout_for_another_clients_payment_request(): void
+    {
+        $client = Client::factory()->create();
+        $otherClient = Client::factory()->create();
+        $user = User::factory()->for($client)->create();
+        $otherProject = Project::factory()->for($otherClient)->create();
+        $paymentRequest = PaymentRequest::factory()->for($otherClient)->for($otherProject)->create([
+            'status' => 'sent',
+        ]);
+
+        $this->mock(PaymentRequestCheckoutSessionCreator::class, function (MockInterface $mock) {
+            $mock->shouldNotReceive('create');
+        });
+
+        $this->actingAs($user)
+            ->post(route('client.billing.payment-requests.checkout', $paymentRequest))
+            ->assertForbidden();
+
+        $this->assertNull($paymentRequest->refresh()->stripe_checkout_session_id);
+    }
+
+    public function test_client_cannot_checkout_a_paid_cancelled_or_draft_request(): void
+    {
+        $client = Client::factory()->create();
+        $user = User::factory()->for($client)->create();
+        $project = Project::factory()->for($client)->create();
+
+        $this->mock(PaymentRequestCheckoutSessionCreator::class, function (MockInterface $mock) {
+            $mock->shouldNotReceive('create');
+        });
+
+        foreach (['paid', 'cancelled', 'draft'] as $status) {
+            $paymentRequest = PaymentRequest::factory()->for($client)->for($project)->create([
+                'status' => $status,
+            ]);
+
+            $this->actingAs($user)
+                ->post(route('client.billing.payment-requests.checkout', $paymentRequest))
+                ->assertForbidden();
+
+            $this->assertNull($paymentRequest->refresh()->stripe_checkout_session_id);
+        }
+    }
+
+    public function test_unauthenticated_users_are_redirected_to_login_when_starting_checkout(): void
+    {
+        $paymentRequest = PaymentRequest::factory()->create([
+            'status' => 'sent',
+        ]);
+
+        $this->post(route('client.billing.payment-requests.checkout', $paymentRequest))
             ->assertRedirect(route('login'));
     }
 }
