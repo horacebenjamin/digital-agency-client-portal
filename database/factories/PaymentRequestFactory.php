@@ -4,7 +4,6 @@ namespace Database\Factories;
 
 use App\Models\Client;
 use App\Models\PaymentRequest;
-use App\Models\Project;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -21,7 +20,7 @@ class PaymentRequestFactory extends Factory
     {
         return [
             'client_id' => Client::factory(),
-            'project_id' => Project::factory(),
+            'project_id' => null,
             'title' => fake()->sentence(4),
             'description' => fake()->optional()->paragraph(),
             'amount' => fake()->numberBetween(5000, 250000),

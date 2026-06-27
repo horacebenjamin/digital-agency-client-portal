@@ -20,7 +20,7 @@ Route::get('/', function () {
     ]);
 });
 
-Route::get('/dashboard', ClientDashboardController::class)->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', ClientDashboardController::class)->middleware(['auth', 'verified', 'client.portal'])->name('dashboard');
 
 Route::post('/stripe/webhook', StripeWebhookController::class)->name('stripe.webhook');
 
@@ -30,7 +30,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth', 'verified', 'client.portal'])->group(function () {
     Route::get('/billing', [ClientBillingController::class, 'index'])->name('client.billing.index');
     Route::post('/billing/payment-requests/{paymentRequest}/checkout', [ClientBillingController::class, 'checkout'])->name('client.billing.payment-requests.checkout');
     Route::get('/notifications', [ClientNotificationController::class, 'index'])->name('client.notifications.index');

@@ -6,6 +6,7 @@ use App\Models\Client;
 use App\Models\PaymentRequest;
 use App\Models\Project;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class PaymentRequestTest extends TestCase
@@ -58,5 +59,19 @@ class PaymentRequestTest extends TestCase
         ]);
 
         $this->assertSame('draft', $paymentRequest->refresh()->status);
+    }
+
+    public function test_payment_request_rejects_project_from_another_client(): void
+    {
+        $client = Client::factory()->create();
+        $otherClient = Client::factory()->create();
+        $project = Project::factory()->for($otherClient)->create();
+
+        $this->expectException(ValidationException::class);
+
+        PaymentRequest::factory()
+            ->for($client)
+            ->for($project)
+            ->create();
     }
 }

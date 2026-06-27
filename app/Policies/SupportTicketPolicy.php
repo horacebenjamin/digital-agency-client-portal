@@ -9,6 +9,10 @@ class SupportTicketPolicy
 {
     public function view(User $user, SupportTicket $supportTicket): bool
     {
+        if ($user->hasRole('admin')) {
+            return true;
+        }
+
         return $user->client_id !== null
             && $supportTicket->project()->where('client_id', $user->client_id)->exists();
     }

@@ -7,6 +7,7 @@ use Database\Factories\PaymentRequestFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Validation\ValidationException;
 
 class PaymentRequest extends Model
 {
@@ -44,6 +45,10 @@ class PaymentRequest extends Model
 
     protected static function booted(): void
     {
+        static::saving(function (PaymentRequest $paymentRequest): void {
+            $paymentRequest->ensureProjectBelongsToClient();
+        });
+
         static::created(function (PaymentRequest $paymentRequest): void {
             $paymentRequest->notifyClientUsersIfSent();
         });
@@ -65,6 +70,25 @@ class PaymentRequest extends Model
     public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class);
+    }
+
+    private function ensureProjectBelongsToClient(): void
+    {
+        if (! $this->client_id || ! $this->project_id) {
+            return;
+        }
+
+        $projectClientId = Project::query()
+            ->whereKey($this->project_id)
+            ->value('client_id');
+
+        if ((int) $projectClientId === (int) $this->client_id) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'project_id' => 'The selected project does not belong to the selected client.',
+        ]);
     }
 
     private function notifyClientUsersIfSent(): void
