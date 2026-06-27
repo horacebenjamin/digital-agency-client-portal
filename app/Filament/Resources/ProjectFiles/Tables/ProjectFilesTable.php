@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ProjectFiles\Tables;
 
+use App\Models\ProjectFile;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -19,24 +20,29 @@ class ProjectFilesTable
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('name')
-                    ->searchable(),
-                TextColumn::make('path')
-                    ->searchable(),
-                TextColumn::make('disk')
-                    ->searchable(),
-                TextColumn::make('mime_type')
-                    ->searchable(),
-                TextColumn::make('size')
-                    ->numeric()
+                    ->label('File')
+                    ->searchable()
                     ->sortable(),
+                TextColumn::make('description')
+                    ->limit(50)
+                    ->searchable(),
+                TextColumn::make('status')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        ProjectFile::STATUS_DRAFT => 'gray',
+                        ProjectFile::STATUS_AVAILABLE => 'success',
+                        ProjectFile::STATUS_ARCHIVED => 'warning',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn (string $state): string => ucfirst($state))
+                    ->sortable(),
+                TextColumn::make('type')
+                    ->label('Type')
+                    ->getStateUsing(fn (ProjectFile $record): string => strtoupper(pathinfo($record->name, PATHINFO_EXTENSION)) ?: 'FILE'),
                 TextColumn::make('created_at')
+                    ->label('Uploaded')
                     ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->sortable(),
             ])
             ->filters([
                 //

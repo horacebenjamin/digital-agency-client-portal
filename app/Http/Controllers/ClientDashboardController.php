@@ -61,6 +61,7 @@ class ClientDashboardController extends Controller
                 [
                     'label' => 'Available Project Files',
                     'value' => ProjectFile::query()
+                        ->where('status', ProjectFile::STATUS_AVAILABLE)
                         ->whereHas('project', fn ($query) => $query->where('client_id', $client->id))
                         ->count(),
                     'description' => 'Files ready to download',
@@ -174,6 +175,7 @@ class ClientDashboardController extends Controller
     private function recentProjectFiles(int $clientId): Collection
     {
         return ProjectFile::query()
+            ->where('status', ProjectFile::STATUS_AVAILABLE)
             ->whereHas('project', fn ($query) => $query->where('client_id', $clientId))
             ->with('project:id,title')
             ->latest()

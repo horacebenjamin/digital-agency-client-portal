@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ProjectFiles\Schemas;
 
+use App\Models\ProjectFile;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -26,6 +27,10 @@ class ProjectFileForm
                     ->openable(),
                 Textarea::make('description')
                     ->columnSpanFull(),
+                Select::make('status')
+                    ->options(ProjectFile::STATUSES)
+                    ->default(ProjectFile::STATUS_AVAILABLE)
+                    ->required(),
             ]);
     }
 }

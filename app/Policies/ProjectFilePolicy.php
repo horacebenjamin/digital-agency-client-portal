@@ -9,11 +9,12 @@ class ProjectFilePolicy
 {
     public function download(User $user, ProjectFile $projectFile): bool
     {
-        if ($user->hasRole('admin')) {
+        if ($user->hasAnyRole(['admin', 'project_manager', 'developer'])) {
             return true;
         }
 
         return $user->client_id !== null
+            && $projectFile->isAvailable()
             && $projectFile->project()->where('client_id', $user->client_id)->exists();
     }
 }

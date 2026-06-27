@@ -39,12 +39,16 @@ class ClientProjectController extends Controller
         Gate::authorize('view', $project);
 
         $project->load([
-            'files' => fn ($query) => $query->latest(),
+            'files' => fn ($query) => $query->where('status', ProjectFile::STATUS_AVAILABLE)->latest(),
             'updates' => fn ($query) => $query
                 ->where('status', 'published')
                 ->latest()
                 ->limit(5),
-        ])->loadCount(['updates', 'files', 'supportTickets']);
+        ])->loadCount([
+            'updates',
+            'files' => fn ($query) => $query->where('status', ProjectFile::STATUS_AVAILABLE),
+            'supportTickets',
+        ]);
 
         return Inertia::render('Client/Projects/Show', [
             'project' => [

@@ -36,6 +36,7 @@ class ProjectFileFactory extends Factory
             ]),
             'size' => fake()->numberBetween(50_000, 5_000_000),
             'description' => fake()->optional()->sentence(),
+            'status' => ProjectFile::STATUS_AVAILABLE,
         ];
     }
 }

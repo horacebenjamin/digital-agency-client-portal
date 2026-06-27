@@ -23,7 +23,29 @@ class ProjectFile extends Model
         'mime_type',
         'size',
         'description',
+        'status',
     ];
+
+    protected $attributes = [
+        'status' => self::STATUS_AVAILABLE,
+    ];
+
+    public const STATUS_DRAFT = 'draft';
+
+    public const STATUS_AVAILABLE = 'available';
+
+    public const STATUS_ARCHIVED = 'archived';
+
+    public const STATUSES = [
+        self::STATUS_DRAFT => 'Draft',
+        self::STATUS_AVAILABLE => 'Available',
+        self::STATUS_ARCHIVED => 'Archived',
+    ];
+
+    public function isAvailable(): bool
+    {
+        return $this->status === self::STATUS_AVAILABLE;
+    }
 
     protected static function booted(): void
     {
@@ -49,12 +71,38 @@ class ProjectFile extends Model
         });
 
         static::created(function (ProjectFile $projectFile): void {
-            $projectFile->loadMissing('project.client.users');
-
-            $projectFile->project->client->users
-                ->each
-                ->notify(new ProjectFileUploaded($projectFile));
+            $projectFile->notifyClientUsersIfAvailable();
         });
+
+        static::updated(function (ProjectFile $projectFile): void {
+            if (! $projectFile->wasChanged('status')) {
+                return;
+            }
+
+            $projectFile->notifyClientUsersIfAvailable();
+        });
+    }
+
+    private function notifyClientUsersIfAvailable(): void
+    {
+        if (! $this->isAvailable()) {
+            return;
+        }
+
+        $this->loadMissing('project.client.users');
+
+        $this->project->client->users
+            ->reject(fn (User $user): bool => $this->userAlreadyNotified($user))
+            ->each
+            ->notify(new ProjectFileUploaded($this));
+    }
+
+    private function userAlreadyNotified(User $user): bool
+    {
+        return $user->notifications()
+            ->where('type', ProjectFileUploaded::class)
+            ->get()
+            ->contains(fn ($notification): bool => ($notification->data['project_file_id'] ?? null) === $this->id);
     }
 
     public function project(): BelongsTo
