@@ -1,13 +1,89 @@
 <script setup>
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
 
-defineProps({
+const props = defineProps({
     project: {
         type: Object,
         required: true,
     },
 });
+
+const aiSummary = ref(props.project.ai_summary || '');
+const aiSummaryError = ref(props.project.ai_summary_error || '');
+const aiSummaryStatus = ref(props.project.ai_summary_status || 'idle');
+const aiSummaryLoading = computed(() => aiSummaryStatus.value === 'generating');
+let aiSummaryPoll = null;
+
+const stopAiSummaryPolling = () => {
+    if (aiSummaryPoll) {
+        clearInterval(aiSummaryPoll);
+        aiSummaryPoll = null;
+    }
+};
+
+const applyAiSummaryPayload = (payload) => {
+    aiSummaryStatus.value = payload.status || 'idle';
+    aiSummary.value = payload.summary || '';
+    aiSummaryError.value = payload.message || '';
+
+    if (aiSummaryStatus.value !== 'generating') {
+        stopAiSummaryPolling();
+    }
+};
+
+const pollAiSummary = async () => {
+    try {
+        const response = await window.axios.get(
+            props.project.ai_summary_status_url,
+        );
+
+        applyAiSummaryPayload(response.data);
+    } catch (error) {
+        aiSummaryStatus.value = 'failed';
+        aiSummaryError.value =
+            error.response?.data?.message ||
+            'The AI summary status could not be checked right now.';
+        stopAiSummaryPolling();
+    }
+};
+
+const startAiSummaryPolling = () => {
+    if (aiSummaryPoll) {
+        return;
+    }
+
+    aiSummaryPoll = setInterval(pollAiSummary, 3000);
+};
+
+const generateAiSummary = async () => {
+    aiSummaryStatus.value = 'generating';
+    aiSummaryError.value = '';
+
+    try {
+        const response = await window.axios.post(props.project.ai_summary_url);
+
+        applyAiSummaryPayload(response.data);
+
+        if (aiSummaryStatus.value === 'generating') {
+            startAiSummaryPolling();
+        }
+    } catch (error) {
+        aiSummaryStatus.value = 'failed';
+        aiSummaryError.value =
+            error.response?.data?.message ||
+            'The AI summary could not be generated right now.';
+    }
+};
+
+onMounted(() => {
+    if (aiSummaryStatus.value === 'generating') {
+        startAiSummaryPolling();
+    }
+});
+
+onBeforeUnmount(stopAiSummaryPolling);
 
 const statusBadgeClasses = (status) => {
     return (
@@ -260,6 +336,63 @@ const updateBadgeClasses = (status) => {
                 </div>
 
                 <aside class="space-y-6">
+                    <section
+                        class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg dark:bg-gray-800"
+                    >
+                        <div
+                            class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between lg:flex-col"
+                        >
+                            <div>
+                                <h3
+                                    class="text-lg font-semibold text-gray-900 dark:text-gray-100"
+                                >
+                                    AI Project Summary
+                                </h3>
+                                <p
+                                    class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-400"
+                                >
+                                    Generate a concise readout from recent
+                                    project activity, tickets, files, and
+                                    billing.
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                :disabled="aiSummaryLoading"
+                                class="inline-flex w-fit items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+                                @click="generateAiSummary"
+                            >
+                                {{
+                                    aiSummaryLoading
+                                        ? 'Generating...'
+                                        : 'Generate Summary'
+                                }}
+                            </button>
+                        </div>
+
+                        <div
+                            v-if="aiSummaryLoading"
+                            class="mt-4 rounded-md border border-indigo-200 bg-indigo-50 p-4 text-sm leading-6 text-indigo-700 dark:border-indigo-900/60 dark:bg-indigo-950/30 dark:text-indigo-200"
+                        >
+                            Your summary is being generated in the background.
+                        </div>
+
+                        <div
+                            v-if="aiSummaryError"
+                            class="mt-4 rounded-md border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200"
+                        >
+                            {{ aiSummaryError }}
+                        </div>
+
+                        <p
+                            v-if="aiSummary"
+                            class="mt-4 whitespace-pre-line text-sm leading-6 text-gray-700 dark:text-gray-300"
+                        >
+                            {{ aiSummary }}
+                        </p>
+                    </section>
+
                     <section
                         class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg dark:bg-gray-800"
                     >

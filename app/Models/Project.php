@@ -30,6 +30,11 @@ class Project extends Model
         'due_date',
         'started_at',
         'completed_at',
+        'ai_summary',
+        'ai_summary_status',
+        'ai_summary_error',
+        'ai_summary_requested_at',
+        'ai_summary_generated_at',
     ];
 
     protected function casts(): array
@@ -38,6 +43,8 @@ class Project extends Model
             'due_date' => 'date',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
+            'ai_summary_requested_at' => 'datetime',
+            'ai_summary_generated_at' => 'datetime',
         ];
     }
 

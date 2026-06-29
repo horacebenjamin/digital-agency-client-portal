@@ -2,6 +2,10 @@
 
 namespace App\Providers;
 
+use App\AI\AIProvider;
+use App\AI\AIService;
+use App\AI\ConfiguredAIService;
+use App\AI\Providers\OllamaProvider;
 use App\Models\Project;
 use App\Models\ProjectFile;
 use App\Policies\ProjectFilePolicy;
@@ -27,7 +31,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(AIProvider::class, function () {
+            return match (config('ai.provider')) {
+                'ollama' => $this->app->make(OllamaProvider::class),
+                default => throw new \InvalidArgumentException('Unsupported AI provider configured.'),
+            };
+        });
+
+        $this->app->bind(AIService::class, ConfiguredAIService::class);
     }
 
     /**
