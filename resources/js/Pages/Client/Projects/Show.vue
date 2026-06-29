@@ -180,6 +180,83 @@ const updateBadgeClasses = (status) => {
                             </article>
                         </div>
                     </section>
+
+                    <section
+                        class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg dark:bg-gray-800"
+                    >
+                        <h3
+                            class="text-lg font-semibold text-gray-900 dark:text-gray-100"
+                        >
+                            Activity Timeline
+                        </h3>
+
+                        <div
+                            v-if="project.timeline.length === 0"
+                            class="mt-4 rounded-md border border-dashed border-gray-300 bg-gray-50/60 p-5 dark:border-gray-700 dark:bg-gray-900/30"
+                        >
+                            <h4
+                                class="font-semibold text-gray-900 dark:text-gray-100"
+                            >
+                                No activity yet
+                            </h4>
+                            <p
+                                class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-400"
+                            >
+                                Project milestones, files, support activity,
+                                and billing updates will appear here.
+                            </p>
+                        </div>
+
+                        <ol v-else class="mt-5 space-y-5">
+                            <li
+                                v-for="item in project.timeline"
+                                :key="`${item.type}-${item.occurred_at}-${item.description}`"
+                                class="relative border-l border-gray-200 pl-5 dark:border-gray-700"
+                            >
+                                <span
+                                    class="absolute -left-1.5 top-1.5 h-3 w-3 rounded-full bg-indigo-600 ring-4 ring-white dark:bg-indigo-400 dark:ring-gray-800"
+                                />
+                                <div
+                                    class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"
+                                >
+                                    <div>
+                                        <p
+                                            class="text-sm font-semibold text-gray-900 dark:text-gray-100"
+                                        >
+                                            {{ item.label }}
+                                        </p>
+                                        <p
+                                            class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-400"
+                                        >
+                                            {{ item.description }}
+                                        </p>
+                                        <p
+                                            v-if="item.actor"
+                                            class="mt-1 text-xs text-gray-500 dark:text-gray-400"
+                                        >
+                                            By {{ item.actor }}
+                                        </p>
+                                    </div>
+                                    <div
+                                        class="flex shrink-0 flex-col gap-1 text-left sm:text-right"
+                                    >
+                                        <time
+                                            class="text-xs font-medium text-gray-500 dark:text-gray-400"
+                                        >
+                                            {{ item.occurred_at }}
+                                        </time>
+                                        <a
+                                            v-if="item.url"
+                                            :href="item.url"
+                                            class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                        >
+                                            {{ item.link_label || 'View' }}
+                                        </a>
+                                    </div>
+                                </div>
+                            </li>
+                        </ol>
+                    </section>
                 </div>
 
                 <aside class="space-y-6">
