@@ -20,7 +20,7 @@ class SupportTicketCommentResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
-    protected static ?string $recordTitleAttribute = 'content';
+    protected static ?string $recordTitleAttribute = 'body';
 
     public static function form(Schema $schema): Schema
     {

@@ -4,7 +4,9 @@ namespace App\Notifications;
 
 use App\Models\SupportTicketComment;
 use Illuminate\Bus\Queueable;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\Str;
 
 class SupportTicketReplyCreated extends Notification
 {
@@ -16,7 +18,28 @@ class SupportTicketReplyCreated extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['database'];
+        if ($this->comment->is_internal) {
+            return [];
+        }
+
+        return ['database', 'mail'];
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        $ticket = $this->comment->supportTicket;
+        $project = $ticket->project;
+        $message = (new MailMessage)
+            ->subject('New support ticket reply: '.$ticket->title)
+            ->greeting('New support ticket reply')
+            ->line("There is a new reply on {$ticket->title} for {$project->title}.")
+            ->action('View support ticket', route('client.support-tickets.show', $ticket));
+
+        if (filled($this->comment->body)) {
+            $message->line(Str::limit(strip_tags($this->comment->body), 220));
+        }
+
+        return $message->line('Sign in to the client portal to reply or review the full conversation.');
     }
 
     public function toArray(object $notifiable): array

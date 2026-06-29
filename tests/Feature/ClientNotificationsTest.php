@@ -10,7 +10,12 @@ use App\Models\ProjectUpdate;
 use App\Models\SupportTicket;
 use App\Models\SupportTicketComment;
 use App\Models\User;
+use App\Notifications\PaymentRequestSent;
+use App\Notifications\ProjectFileUploaded;
+use App\Notifications\ProjectUpdatePublished;
+use App\Notifications\SupportTicketReplyCreated;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -122,17 +127,94 @@ class ClientNotificationsTest extends TestCase
 
     public function test_internal_support_ticket_comment_does_not_notify_clients(): void
     {
+        Notification::fake();
+
         $client = Client::factory()->create();
         $project = Project::factory()->for($client)->create();
         $ticket = SupportTicket::factory()->for($project)->create();
         $clientUser = User::factory()->for($client)->create();
         $adminUser = User::factory()->create(['client_id' => null]);
 
-        SupportTicketComment::factory()->for($ticket)->for($adminUser, 'creator')->create([
+        $comment = SupportTicketComment::factory()->for($ticket)->for($adminUser, 'creator')->create([
             'is_internal' => true,
         ]);
 
+        Notification::assertNothingSent();
+        $this->assertSame([], (new SupportTicketReplyCreated($comment))->via($clientUser));
         $this->assertSame(0, $clientUser->fresh()->notifications()->count());
+    }
+
+    public function test_client_portal_notifications_use_database_and_mail_channels(): void
+    {
+        Notification::fake();
+        Storage::fake('local');
+
+        $client = Client::factory()->create();
+        $project = Project::factory()->for($client)->create(['title' => 'Website Redesign']);
+        $clientUser = User::factory()->for($client)->create();
+        $adminUser = User::factory()->create(['client_id' => null]);
+        $ticket = SupportTicket::factory()->for($project)->create(['title' => 'Homepage feedback']);
+
+        $projectUpdate = ProjectUpdate::factory()->for($project)->create([
+            'title' => 'Kickoff complete',
+            'body' => 'The kickoff notes are ready to review.',
+            'status' => 'published',
+        ]);
+
+        Storage::disk('local')->put('project-files/design.pdf', 'design contents');
+        $projectFile = ProjectFile::factory()->for($project)->create([
+            'name' => 'Design.pdf',
+            'path' => 'project-files/design.pdf',
+            'disk' => 'local',
+        ]);
+
+        $supportComment = SupportTicketComment::factory()->for($ticket)->for($adminUser, 'creator')->create([
+            'body' => 'We have updated the homepage copy.',
+            'is_internal' => false,
+        ]);
+
+        $paymentRequest = PaymentRequest::factory()->for($client)->for($project)->create([
+            'title' => 'Website deposit',
+            'amount' => 125000,
+            'status' => 'sent',
+        ]);
+
+        Notification::assertSentTo($clientUser, ProjectUpdatePublished::class, function (ProjectUpdatePublished $notification, array $channels) use ($clientUser, $project, $projectUpdate): bool {
+            $mail = $notification->toMail($clientUser);
+
+            return $channels === ['database', 'mail']
+                && $mail->subject === 'New project update: Kickoff complete'
+                && $mail->actionUrl === route('client.projects.show', $project)
+                && $notification->projectUpdate->is($projectUpdate);
+        });
+
+        Notification::assertSentTo($clientUser, ProjectFileUploaded::class, function (ProjectFileUploaded $notification, array $channels) use ($clientUser, $project, $projectFile): bool {
+            $mail = $notification->toMail($clientUser);
+
+            return $channels === ['database', 'mail']
+                && $mail->subject === 'New project file: Design.pdf'
+                && $mail->actionUrl === route('client.projects.show', $project)
+                && $notification->projectFile->is($projectFile);
+        });
+
+        Notification::assertSentTo($clientUser, SupportTicketReplyCreated::class, function (SupportTicketReplyCreated $notification, array $channels) use ($clientUser, $supportComment, $ticket): bool {
+            $mail = $notification->toMail($clientUser);
+
+            return $channels === ['database', 'mail']
+                && $mail->subject === 'New support ticket reply: Homepage feedback'
+                && $mail->actionUrl === route('client.support-tickets.show', $ticket)
+                && $notification->comment->is($supportComment);
+        });
+
+        Notification::assertSentTo($clientUser, PaymentRequestSent::class, function (PaymentRequestSent $notification, array $channels) use ($clientUser, $paymentRequest): bool {
+            $mail = $notification->toMail($clientUser);
+
+            return $channels === ['database', 'mail']
+                && $mail->subject === 'New payment request: Website deposit'
+                && $mail->actionUrl === route('client.billing.index')
+                && in_array('Amount: GBP 1,250.00', $mail->introLines, true)
+                && $notification->paymentRequest->is($paymentRequest);
+        });
     }
 
     public function test_client_support_ticket_reply_does_not_notify_other_client_users(): void
