@@ -2,9 +2,12 @@
 
 namespace App\Filament\Resources\PaymentRequests\Tables;
 
+use App\Models\PaymentRequest;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
@@ -55,6 +58,11 @@ class PaymentRequestsTable
                 //
             ])
             ->recordActions([
+                Action::make('downloadPdf')
+                    ->label('PDF')
+                    ->icon(Heroicon::OutlinedDocumentArrowDown)
+                    ->url(fn (PaymentRequest $record): string => route('admin.payment-requests.pdf', $record))
+                    ->openUrlInNewTab(),
                 EditAction::make(),
             ])
             ->toolbarActions([

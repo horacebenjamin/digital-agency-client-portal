@@ -133,15 +133,23 @@ defineProps({
                                         {{ payment.due_date || 'No due date' }}
                                     </td>
                                     <td class="px-6 py-4 text-right">
-                                        <Link
-                                            v-if="payment.can_pay"
-                                            :href="payment.checkout_url"
-                                            method="post"
-                                            as="button"
-                                            class="inline-flex items-center rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white"
-                                        >
-                                            Pay
-                                        </Link>
+                                        <div class="flex justify-end gap-3">
+                                            <a
+                                                :href="payment.pdf_url"
+                                                class="inline-flex items-center rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                                            >
+                                                Download PDF
+                                            </a>
+                                            <Link
+                                                v-if="payment.can_pay"
+                                                :href="payment.checkout_url"
+                                                method="post"
+                                                as="button"
+                                                class="inline-flex items-center rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white"
+                                            >
+                                                Pay
+                                            </Link>
+                                        </div>
                                     </td>
                                 </tr>
                             </tbody>
@@ -210,6 +218,7 @@ defineProps({
                                     >
                                         Paid
                                     </th>
+                                    <th class="px-6 py-3" />
                                 </tr>
                             </thead>
                             <tbody
@@ -254,6 +263,14 @@ defineProps({
                                             payment.paid_date ||
                                             'Payment received'
                                         }}
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <a
+                                            :href="payment.pdf_url"
+                                            class="inline-flex items-center rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                                        >
+                                            Download Receipt
+                                        </a>
                                     </td>
                                 </tr>
                             </tbody>

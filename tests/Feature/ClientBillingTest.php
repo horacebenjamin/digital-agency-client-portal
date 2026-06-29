@@ -7,6 +7,7 @@ use App\Models\PaymentRequest;
 use App\Models\Project;
 use App\Models\User;
 use App\Services\PaymentRequestCheckoutSessionCreator;
+use App\Services\PaymentRequestPdfGenerator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -53,6 +54,7 @@ class ClientBillingTest extends TestCase
                 ->where('outstandingPayments.0.due_date', 'Jul 10, 2026')
                 ->where('outstandingPayments.0.can_pay', true)
                 ->where('outstandingPayments.0.checkout_url', route('client.billing.payment-requests.checkout', PaymentRequest::first()))
+                ->where('outstandingPayments.0.pdf_url', route('client.billing.payment-requests.pdf', PaymentRequest::first()))
                 ->has('paidPayments', 0)
             );
 
@@ -215,5 +217,95 @@ class ClientBillingTest extends TestCase
 
         $this->post(route('client.billing.payment-requests.checkout', $paymentRequest))
             ->assertRedirect(route('login'));
+    }
+
+    public function test_client_can_download_their_own_payment_request_pdf(): void
+    {
+        $client = Client::factory()->create(['company_name' => 'Acme Studio']);
+        $user = User::factory()->for($client)->create();
+        $project = Project::factory()->for($client)->create(['title' => 'Website Refresh']);
+        $paymentRequest = PaymentRequest::factory()->for($client)->for($project)->create([
+            'title' => 'Website deposit',
+            'amount' => 125000,
+            'currency' => 'gbp',
+            'status' => 'sent',
+            'due_date' => '2026-07-10',
+        ]);
+
+        $response = $this->actingAs($user)
+            ->get(route('client.billing.payment-requests.pdf', $paymentRequest))
+            ->assertOk();
+
+        $this->assertSame('application/pdf', $response->headers->get('content-type'));
+        $this->assertStringStartsWith('%PDF', $response->getContent());
+        $this->assertStringContainsString('payment-request-'.$paymentRequest->id.'-website-deposit.pdf', $response->headers->get('content-disposition'));
+    }
+
+    public function test_client_cannot_download_another_clients_payment_request_pdf(): void
+    {
+        $client = Client::factory()->create();
+        $otherClient = Client::factory()->create();
+        $user = User::factory()->for($client)->create();
+        $paymentRequest = PaymentRequest::factory()->for($otherClient)->create([
+            'status' => 'sent',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('client.billing.payment-requests.pdf', $paymentRequest))
+            ->assertForbidden();
+    }
+
+    public function test_paid_payment_request_pdf_data_includes_receipt_information(): void
+    {
+        Carbon::setTestNow('2026-06-29 14:00:00');
+
+        $client = Client::factory()->create(['company_name' => 'Acme Studio']);
+        $project = Project::factory()->for($client)->create(['title' => 'Website Refresh']);
+        $paymentRequest = PaymentRequest::factory()->for($client)->for($project)->create([
+            'title' => 'Final balance',
+            'amount' => 250000,
+            'currency' => 'gbp',
+            'status' => 'paid',
+            'paid_at' => '2026-06-28 09:30:00',
+            'stripe_payment_intent_id' => 'pi_test_123',
+        ]);
+
+        $data = app(PaymentRequestPdfGenerator::class)->data($paymentRequest);
+
+        $this->assertSame('Payment Receipt', $data['documentTitle']);
+        $this->assertSame('Receipt #'.$paymentRequest->id, $data['documentReference']);
+        $this->assertSame('support@digitalagency.test', $data['agencyEmail']);
+        $this->assertSame('Acme Studio', $data['clientName']);
+        $this->assertSame('Website Refresh', $data['projectName']);
+        $this->assertSame('£2,500.00', $data['amount']);
+        $this->assertSame('Paid', $data['status']);
+        $this->assertSame('Jun 28, 2026 9:30am', $data['paidDate']);
+        $this->assertSame('pi_test_123', $data['stripePaymentId']);
+        $this->assertSame('Jun 29, 2026 2:00pm', $data['generatedDate']);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_unpaid_payment_requests_still_generate_payment_request_pdf_data(): void
+    {
+        $client = Client::factory()->create(['company_name' => 'Acme Studio']);
+        $paymentRequest = PaymentRequest::factory()->for($client)->create([
+            'title' => 'Planning deposit',
+            'amount' => 50000,
+            'currency' => 'gbp',
+            'status' => 'sent',
+            'paid_at' => null,
+            'stripe_payment_intent_id' => null,
+        ]);
+
+        $data = app(PaymentRequestPdfGenerator::class)->data($paymentRequest);
+
+        $this->assertSame('Payment Request', $data['documentTitle']);
+        $this->assertSame('Payment Request #'.$paymentRequest->id, $data['documentReference']);
+        $this->assertSame('support@digitalagency.test', $data['agencyEmail']);
+        $this->assertSame('£500.00', $data['amount']);
+        $this->assertSame('Sent', $data['status']);
+        $this->assertNull($data['paidDate']);
+        $this->assertNull($data['stripePaymentId']);
     }
 }

@@ -62,7 +62,7 @@ class ClientBillingController extends Controller
     }
 
     /**
-     * @return array{id: int, title: string, project_name: string|null, amount: string, status: string, status_label: string, status_badge_classes: string, due_date: string|null, paid_date: string|null, can_pay: bool, checkout_url: string}
+     * @return array{id: int, title: string, project_name: string|null, amount: string, status: string, status_label: string, status_badge_classes: string, due_date: string|null, paid_date: string|null, can_pay: bool, checkout_url: string, pdf_url: string}
      */
     private function serializePaymentRequest(PaymentRequest $paymentRequest): array
     {
@@ -78,6 +78,7 @@ class ClientBillingController extends Controller
             'paid_date' => $paymentRequest->paid_at?->format('M j, Y'),
             'can_pay' => $paymentRequest->status === 'sent',
             'checkout_url' => route('client.billing.payment-requests.checkout', $paymentRequest),
+            'pdf_url' => route('client.billing.payment-requests.pdf', $paymentRequest),
         ];
     }
 

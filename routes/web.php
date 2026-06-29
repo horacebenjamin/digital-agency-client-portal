@@ -5,6 +5,7 @@ use App\Http\Controllers\ClientDashboardController;
 use App\Http\Controllers\ClientNotificationController;
 use App\Http\Controllers\ClientProjectController;
 use App\Http\Controllers\ClientSupportTicketController;
+use App\Http\Controllers\PaymentRequestPdfController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StripeWebhookController;
 use Illuminate\Foundation\Application;
@@ -28,11 +29,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    Route::get('/admin/payment-request-pdfs/{paymentRequest}', [PaymentRequestPdfController::class, 'admin'])->name('admin.payment-requests.pdf');
 });
 
 Route::middleware(['auth', 'verified', 'client.portal'])->group(function () {
     Route::get('/billing', [ClientBillingController::class, 'index'])->name('client.billing.index');
     Route::post('/billing/payment-requests/{paymentRequest}/checkout', [ClientBillingController::class, 'checkout'])->name('client.billing.payment-requests.checkout');
+    Route::get('/billing/payment-requests/{paymentRequest}/pdf', [PaymentRequestPdfController::class, 'client'])->name('client.billing.payment-requests.pdf');
     Route::get('/notifications', [ClientNotificationController::class, 'index'])->name('client.notifications.index');
     Route::patch('/notifications/{notification}/read', [ClientNotificationController::class, 'markAsRead'])->name('client.notifications.read');
     Route::get('/projects', [ClientProjectController::class, 'index'])->name('client.projects.index');
