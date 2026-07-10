@@ -1,12 +1,35 @@
 <script setup>
+import { computed } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
 
-defineProps({
+const props = defineProps({
     projects: {
         type: Object,
         required: true,
     },
+});
+
+const projectStats = computed(() => {
+    const items = props.projects.data || [];
+
+    return [
+        {
+            label: 'Total Projects',
+            value: items.length,
+            description: 'Shown on this page',
+        },
+        {
+            label: 'In Progress',
+            value: items.filter((project) => project.status === 'in_progress').length,
+            description: 'Currently moving forward',
+        },
+        {
+            label: 'Overdue',
+            value: items.filter((project) => project.is_overdue).length,
+            description: 'Need schedule attention',
+        },
+    ];
 });
 </script>
 
@@ -15,160 +38,120 @@ defineProps({
 
     <AuthenticatedLayout>
         <template #header>
-            <h2
-                class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200"
-            >
-                My Projects
-            </h2>
+            <div class="flex flex-col gap-1">
+                <h1 class="text-2xl font-bold text-slate-950 dark:text-slate-100">
+                    My Projects
+                </h1>
+                <p class="text-sm text-slate-500 dark:text-slate-400">
+                    Review progress, dates, and the latest agency updates.
+                </p>
+            </div>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                <div
-                    class="overflow-hidden bg-white shadow-sm sm:rounded-lg dark:bg-gray-800"
+        <div class="space-y-6">
+            <section class="grid gap-4 md:grid-cols-3">
+                <article
+                    v-for="stat in projectStats"
+                    :key="stat.label"
+                    class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
                 >
-                    <div
-                        v-if="projects.data.length === 0"
-                        class="p-8 text-center sm:p-10"
-                    >
-                        <div
-                            class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-sm font-semibold text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-200"
-                        >
-                            PR
-                        </div>
-                        <h3
-                            class="mt-4 text-lg font-semibold text-gray-900 dark:text-gray-100"
-                        >
-                            No assigned projects yet
-                        </h3>
-                        <p
-                            class="mx-auto mt-2 max-w-xl text-sm leading-6 text-gray-600 dark:text-gray-400"
-                        >
-                            Projects assigned to your client account will appear
-                            here with their current status, progress, files, and
-                            updates.
-                        </p>
-                    </div>
+                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400">
+                        {{ stat.label }}
+                    </p>
+                    <p class="mt-2 text-3xl font-bold text-slate-950 dark:text-slate-100">
+                        {{ stat.value }}
+                    </p>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        {{ stat.description }}
+                    </p>
+                </article>
+            </section>
 
-                    <div v-else class="overflow-x-auto">
-                        <table
-                            class="min-w-full divide-y divide-gray-200 dark:divide-gray-700"
-                        >
-                            <thead class="bg-gray-50 dark:bg-gray-900/40">
+            <section class="rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <div class="border-b border-slate-200 p-5 dark:border-slate-800">
+                    <h2 class="text-lg font-semibold text-slate-950 dark:text-slate-100">
+                        Project Portfolio
+                    </h2>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">
+                        Active and recent projects assigned to your client account.
+                    </p>
+                </div>
+
+                <div v-if="projects.data.length === 0" class="p-8 text-center sm:p-10">
+                    <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                        PR
+                    </div>
+                    <h3 class="mt-4 text-lg font-semibold text-slate-950 dark:text-slate-100">
+                        No assigned projects yet
+                    </h3>
+                    <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+                        Projects assigned to your client account will appear here with status, progress, files, and updates.
+                    </p>
+                </div>
+
+                <div v-else>
+                    <div class="hidden overflow-x-auto lg:block">
+                        <table class="min-w-full divide-y divide-slate-200 dark:divide-slate-800">
+                            <thead class="bg-slate-50 dark:bg-slate-950">
                                 <tr>
-                                    <th
-                                        class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
-                                    >
-                                        Project
-                                    </th>
-                                    <th
-                                        class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
-                                    >
-                                        Status
-                                    </th>
-                                    <th
-                                        class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
-                                    >
-                                        Progress
-                                    </th>
-                                    <th
-                                        class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
-                                    >
-                                        Last Update
-                                    </th>
-                                    <th
-                                        class="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
-                                    >
-                                        Due Date
-                                    </th>
-                                    <th
-                                        class="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
-                                    >
-                                        Actions
-                                    </th>
+                                    <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Project</th>
+                                    <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
+                                    <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Progress</th>
+                                    <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Last Update</th>
+                                    <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Due Date</th>
+                                    <th class="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody
-                                class="divide-y divide-gray-200 dark:divide-gray-700"
-                            >
+                            <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
                                 <tr
                                     v-for="project in projects.data"
                                     :key="project.id"
+                                    class="transition hover:bg-slate-50 dark:hover:bg-slate-950"
                                 >
-                                    <td class="px-6 py-4">
-                                        <div
-                                            class="font-bold text-gray-900 dark:text-gray-100"
-                                        >
+                                    <td class="px-5 py-4">
+                                        <div class="font-semibold text-slate-950 dark:text-slate-100">
                                             {{ project.title }}
                                         </div>
-                                        <div
-                                            v-if="project.description"
-                                            class="mt-1 line-clamp-1 text-sm text-gray-500 dark:text-gray-400"
-                                        >
+                                        <div v-if="project.description" class="mt-1 max-w-sm truncate text-sm text-slate-500 dark:text-slate-400">
                                             {{ project.description }}
                                         </div>
                                     </td>
-                                    <td class="px-6 py-4">
-                                        <span
-                                            :class="[
-                                                project.status_badge_classes,
-                                                'inline-flex rounded-full px-3 py-1 text-xs font-medium',
-                                            ]"
-                                        >
+                                    <td class="px-5 py-4">
+                                        <span :class="[project.status_badge_classes, 'inline-flex rounded-full px-2.5 py-1 text-xs font-medium']">
                                             {{ project.status_label }}
                                         </span>
                                     </td>
-                                    <td class="px-6 py-4">
+                                    <td class="px-5 py-4">
                                         <div class="flex items-center gap-3">
-                                            <div
-                                                class="h-2 w-full max-w-[100px] overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"
-                                            >
+                                            <div class="h-2 w-32 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
                                                 <div
-                                                    class="h-full rounded-full bg-indigo-600 dark:bg-indigo-400"
-                                                    :style="{
-                                                        width: `${project.progress_percentage}%`,
-                                                    }"
+                                                    class="h-full rounded-full bg-slate-900 dark:bg-slate-100"
+                                                    :style="{ width: `${project.progress_percentage}%` }"
                                                 />
                                             </div>
-                                            <span
-                                                class="text-sm font-medium text-gray-900 dark:text-gray-100"
-                                            >
-                                                {{
-                                                    project.progress_percentage
-                                                }}%
+                                            <span class="text-sm font-medium text-slate-700 dark:text-slate-200">
+                                                {{ project.progress_percentage }}%
                                             </span>
                                         </div>
                                     </td>
-                                    <td
-                                        class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300"
-                                    >
-                                        {{
-                                            project.last_update ||
-                                            'No updates yet'
-                                        }}
+                                    <td class="px-5 py-4 text-sm text-slate-600 dark:text-slate-300">
+                                        {{ project.last_update || 'No updates yet' }}
                                     </td>
-                                    <td class="px-6 py-4 text-sm">
+                                    <td class="px-5 py-4 text-sm">
                                         <span
                                             v-if="project.due_date"
-                                            :class="[
-                                                project.is_overdue
-                                                    ? 'font-medium text-red-600 dark:text-red-400'
-                                                    : 'text-gray-700 dark:text-gray-300',
-                                            ]"
+                                            :class="project.is_overdue ? 'font-medium text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'"
                                         >
                                             {{ project.due_date }}
                                         </span>
-                                        <span
-                                            v-else
-                                            class="text-gray-500 dark:text-gray-400"
-                                        >
+                                        <span v-else class="text-slate-500 dark:text-slate-400">
                                             No due date
                                         </span>
                                     </td>
-                                    <td class="px-6 py-4 text-right">
+                                    <td class="px-5 py-4 text-right">
                                         <Link
                                             :href="project.show_url"
-                                            class="inline-flex items-center rounded-md bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white"
+                                            class="inline-flex items-center rounded-md bg-slate-950 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
                                         >
                                             View
                                         </Link>
@@ -177,27 +160,63 @@ defineProps({
                             </tbody>
                         </table>
                     </div>
-                </div>
 
-                <div
-                    v-if="projects.links.length > 3"
-                    class="mt-8 flex flex-wrap gap-2"
-                >
-                    <Link
-                        v-for="link in projects.links"
-                        :key="`${link.label}-${link.url}`"
-                        :href="link.url || '#'"
-                        preserve-scroll
-                        :class="[
-                            'rounded-md px-3 py-2 text-sm font-medium',
-                            link.active
-                                ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900'
-                                : 'bg-white text-gray-700 shadow-sm hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700',
-                            !link.url && 'pointer-events-none opacity-50',
-                        ]"
-                        v-html="link.label"
-                    />
+                    <div class="divide-y divide-slate-200 lg:hidden dark:divide-slate-800">
+                        <article
+                            v-for="project in projects.data"
+                            :key="`card-${project.id}`"
+                            class="p-5"
+                        >
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="min-w-0">
+                                    <h3 class="truncate font-semibold text-slate-950 dark:text-slate-100">
+                                        {{ project.title }}
+                                    </h3>
+                                    <p v-if="project.description" class="mt-1 line-clamp-2 text-sm text-slate-500 dark:text-slate-400">
+                                        {{ project.description }}
+                                    </p>
+                                </div>
+                                <span :class="[project.status_badge_classes, 'shrink-0 rounded-full px-2.5 py-1 text-xs font-medium']">
+                                    {{ project.status_label }}
+                                </span>
+                            </div>
+                            <div class="mt-4">
+                                <div class="flex items-center justify-between text-sm">
+                                    <span class="text-slate-500 dark:text-slate-400">Progress</span>
+                                    <span class="font-medium text-slate-950 dark:text-slate-100">{{ project.progress_percentage }}%</span>
+                                </div>
+                                <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                                    <div class="h-full rounded-full bg-slate-900 dark:bg-slate-100" :style="{ width: `${project.progress_percentage}%` }" />
+                                </div>
+                            </div>
+                            <div class="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+                                <span class="text-slate-500 dark:text-slate-400">
+                                    Due: {{ project.due_date || 'No due date' }}
+                                </span>
+                                <Link :href="project.show_url" class="font-semibold text-slate-900 hover:text-slate-600 dark:text-slate-100 dark:hover:text-slate-300">
+                                    View project
+                                </Link>
+                            </div>
+                        </article>
+                    </div>
                 </div>
+            </section>
+
+            <div v-if="projects.links.length > 3" class="flex flex-wrap gap-2">
+                <Link
+                    v-for="link in projects.links"
+                    :key="`${link.label}-${link.url}`"
+                    :href="link.url || '#'"
+                    preserve-scroll
+                    :class="[
+                        'rounded-md border px-3 py-2 text-sm font-medium',
+                        link.active
+                            ? 'border-slate-950 bg-slate-950 text-white dark:border-white dark:bg-white dark:text-slate-950'
+                            : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800',
+                        !link.url && 'pointer-events-none opacity-50',
+                    ]"
+                    v-html="link.label"
+                />
             </div>
         </div>
     </AuthenticatedLayout>

@@ -122,12 +122,12 @@ const updateBadgeClasses = (status) => {
                 <div>
                     <Link
                         :href="route('client.projects.index')"
-                        class="text-sm font-medium text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300"
+                        class="text-sm font-medium text-slate-500 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white"
                     >
                         Back to My Projects
                     </Link>
                     <h2
-                        class="mt-2 text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200"
+                        class="mt-2 text-2xl font-bold leading-tight text-slate-950 dark:text-slate-100"
                     >
                         {{ project.title }}
                     </h2>
@@ -143,74 +143,69 @@ const updateBadgeClasses = (status) => {
             </div>
         </template>
 
-        <div class="py-12">
+        <div>
             <div
-                class="mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-3 lg:px-8"
+                class="grid gap-6 lg:grid-cols-3"
             >
                 <div class="space-y-6 lg:col-span-2">
                     <section
-                        class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg dark:bg-gray-800"
+                        class="overflow-hidden rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
                     >
-                        <div class="flex items-center justify-between text-sm">
-                            <span
-                                class="font-medium text-gray-700 dark:text-gray-300"
-                            >
-                                Progress
-                            </span>
-                            <span
-                                class="font-semibold text-gray-900 dark:text-gray-100"
-                            >
-                                {{ project.progress_percentage }}%
-                            </span>
+                        <div class="grid gap-5 sm:grid-cols-[1fr_auto] sm:items-start">
+                            <div>
+                                <h3 class="text-lg font-semibold text-slate-950 dark:text-slate-100">
+                                    Project Details
+                                </h3>
+                                <p
+                                    class="mt-3 whitespace-pre-line text-sm leading-6 text-slate-600 dark:text-slate-400"
+                                >
+                                    {{
+                                        project.description ||
+                                        'No description has been added for this project yet.'
+                                    }}
+                                </p>
+                            </div>
+                            <div class="rounded-lg border border-slate-200 bg-slate-50 p-4 sm:w-44 dark:border-slate-800 dark:bg-slate-950">
+                                <p class="text-sm font-medium text-slate-500 dark:text-slate-400">
+                                    Progress
+                                </p>
+                                <p class="mt-1 text-3xl font-bold text-slate-950 dark:text-slate-100">
+                                    {{ project.progress_percentage }}%
+                                </p>
+                            </div>
                         </div>
                         <div
-                            class="mt-2 h-3 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"
+                            class="mt-6 h-3 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"
                         >
                             <div
-                                class="h-full rounded-full bg-indigo-600 dark:bg-indigo-400"
+                                class="h-full rounded-full bg-slate-950 dark:bg-slate-100"
                                 :style="{
                                     width: `${project.progress_percentage}%`,
                                 }"
                             />
                         </div>
-
-                        <div class="mt-8">
-                            <h3
-                                class="text-lg font-semibold text-gray-900 dark:text-gray-100"
-                            >
-                                Project Details
-                            </h3>
-                            <p
-                                class="mt-3 whitespace-pre-line text-gray-600 dark:text-gray-400"
-                            >
-                                {{
-                                    project.description ||
-                                    'No description has been added for this project yet.'
-                                }}
-                            </p>
-                        </div>
                     </section>
 
                     <section
-                        class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg dark:bg-gray-800"
+                        class="overflow-hidden rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
                     >
                         <h3
-                            class="text-lg font-semibold text-gray-900 dark:text-gray-100"
+                            class="text-lg font-semibold text-slate-950 dark:text-slate-100"
                         >
                             Latest Updates
                         </h3>
 
                         <div
                             v-if="project.updates.length === 0"
-                            class="mt-4 rounded-md border border-dashed border-gray-300 bg-gray-50/60 p-5 dark:border-gray-700 dark:bg-gray-900/30"
+                            class="mt-4 rounded-md border border-dashed border-slate-300 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-950"
                         >
                             <h4
-                                class="font-semibold text-gray-900 dark:text-gray-100"
+                                class="font-semibold text-slate-950 dark:text-slate-100"
                             >
                                 No updates posted yet
                             </h4>
                             <p
-                                class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-400"
+                                class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400"
                             >
                                 Published milestones and progress notes from
                                 your agency team will appear here.
@@ -221,19 +216,19 @@ const updateBadgeClasses = (status) => {
                             <article
                                 v-for="update in project.updates"
                                 :key="update.id"
-                                class="border-t border-gray-200 pt-4 first:border-t-0 first:pt-0 dark:border-gray-700"
+                                class="rounded-lg border border-slate-200 p-4 dark:border-slate-800"
                             >
                                 <div
                                     class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"
                                 >
                                     <div>
                                         <h4
-                                            class="font-semibold text-gray-900 dark:text-gray-100"
+                                            class="font-semibold text-slate-950 dark:text-slate-100"
                                         >
                                             {{ update.title }}
                                         </h4>
                                         <p
-                                            class="mt-1 text-sm text-gray-500 dark:text-gray-400"
+                                            class="mt-1 text-sm text-slate-500 dark:text-slate-400"
                                         >
                                             {{ update.created_date }}
                                         </p>
@@ -249,7 +244,7 @@ const updateBadgeClasses = (status) => {
                                     </span>
                                 </div>
                                 <p
-                                    class="mt-3 whitespace-pre-line text-sm leading-6 text-gray-600 dark:text-gray-400"
+                                    class="mt-3 whitespace-pre-line text-sm leading-6 text-slate-600 dark:text-slate-400"
                                 >
                                     {{ update.summary || update.body }}
                                 </p>
@@ -258,25 +253,25 @@ const updateBadgeClasses = (status) => {
                     </section>
 
                     <section
-                        class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg dark:bg-gray-800"
+                        class="overflow-hidden rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
                     >
                         <h3
-                            class="text-lg font-semibold text-gray-900 dark:text-gray-100"
+                            class="text-lg font-semibold text-slate-950 dark:text-slate-100"
                         >
                             Activity Timeline
                         </h3>
 
                         <div
                             v-if="project.timeline.length === 0"
-                            class="mt-4 rounded-md border border-dashed border-gray-300 bg-gray-50/60 p-5 dark:border-gray-700 dark:bg-gray-900/30"
+                            class="mt-4 rounded-md border border-dashed border-slate-300 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-950"
                         >
                             <h4
-                                class="font-semibold text-gray-900 dark:text-gray-100"
+                                class="font-semibold text-slate-950 dark:text-slate-100"
                             >
                                 No activity yet
                             </h4>
                             <p
-                                class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-400"
+                                class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400"
                             >
                                 Project milestones, files, support activity,
                                 and billing updates will appear here.
@@ -287,28 +282,28 @@ const updateBadgeClasses = (status) => {
                             <li
                                 v-for="item in project.timeline"
                                 :key="`${item.type}-${item.occurred_at}-${item.description}`"
-                                class="relative border-l border-gray-200 pl-5 dark:border-gray-700"
+                                    class="relative border-l border-slate-200 pl-5 dark:border-slate-800"
                             >
                                 <span
-                                    class="absolute -left-1.5 top-1.5 h-3 w-3 rounded-full bg-indigo-600 ring-4 ring-white dark:bg-indigo-400 dark:ring-gray-800"
+                                    class="absolute -left-1.5 top-1.5 h-3 w-3 rounded-full bg-slate-950 ring-4 ring-white dark:bg-slate-100 dark:ring-slate-900"
                                 />
                                 <div
                                     class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"
                                 >
                                     <div>
                                         <p
-                                            class="text-sm font-semibold text-gray-900 dark:text-gray-100"
+                                            class="text-sm font-semibold text-slate-950 dark:text-slate-100"
                                         >
                                             {{ item.label }}
                                         </p>
                                         <p
-                                            class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-400"
+                                            class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400"
                                         >
                                             {{ item.description }}
                                         </p>
                                         <p
                                             v-if="item.actor"
-                                            class="mt-1 text-xs text-gray-500 dark:text-gray-400"
+                                            class="mt-1 text-xs text-slate-500 dark:text-slate-400"
                                         >
                                             By {{ item.actor }}
                                         </p>
@@ -317,14 +312,14 @@ const updateBadgeClasses = (status) => {
                                         class="flex shrink-0 flex-col gap-1 text-left sm:text-right"
                                     >
                                         <time
-                                            class="text-xs font-medium text-gray-500 dark:text-gray-400"
+                                            class="text-xs font-medium text-slate-500 dark:text-slate-400"
                                         >
                                             {{ item.occurred_at }}
                                         </time>
                                         <a
                                             v-if="item.url"
                                             :href="item.url"
-                                            class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                            class="text-xs font-semibold text-slate-900 hover:text-slate-600 dark:text-slate-100 dark:hover:text-slate-300"
                                         >
                                             {{ item.link_label || 'View' }}
                                         </a>
@@ -337,19 +332,19 @@ const updateBadgeClasses = (status) => {
 
                 <aside class="space-y-6">
                     <section
-                        class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg dark:bg-gray-800"
+                        class="overflow-hidden rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
                     >
                         <div
                             class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between lg:flex-col"
                         >
                             <div>
                                 <h3
-                                    class="text-lg font-semibold text-gray-900 dark:text-gray-100"
+                                    class="text-lg font-semibold text-slate-950 dark:text-slate-100"
                                 >
                                     AI Project Summary
                                 </h3>
                                 <p
-                                    class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-400"
+                                    class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400"
                                 >
                                     Generate a concise readout from recent
                                     project activity, tickets, files, and
@@ -360,7 +355,7 @@ const updateBadgeClasses = (status) => {
                             <button
                                 type="button"
                                 :disabled="aiSummaryLoading"
-                                class="inline-flex w-fit items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+                                class="inline-flex w-fit items-center rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
                                 @click="generateAiSummary"
                             >
                                 {{
@@ -373,7 +368,7 @@ const updateBadgeClasses = (status) => {
 
                         <div
                             v-if="aiSummaryLoading"
-                            class="mt-4 rounded-md border border-indigo-200 bg-indigo-50 p-4 text-sm leading-6 text-indigo-700 dark:border-indigo-900/60 dark:bg-indigo-950/30 dark:text-indigo-200"
+                            class="mt-4 rounded-md border border-cyan-200 bg-cyan-50 p-4 text-sm leading-6 text-cyan-800 dark:border-cyan-900/60 dark:bg-cyan-950/30 dark:text-cyan-200"
                         >
                             Your summary is being generated in the background.
                         </div>
@@ -387,32 +382,32 @@ const updateBadgeClasses = (status) => {
 
                         <p
                             v-if="aiSummary"
-                            class="mt-4 whitespace-pre-line text-sm leading-6 text-gray-700 dark:text-gray-300"
+                            class="mt-4 whitespace-pre-line text-sm leading-6 text-slate-600 dark:text-slate-300"
                         >
                             {{ aiSummary }}
                         </p>
                     </section>
 
                     <section
-                        class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg dark:bg-gray-800"
+                        class="overflow-hidden rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
                     >
                         <h3
-                            class="text-lg font-semibold text-gray-900 dark:text-gray-100"
+                            class="text-lg font-semibold text-slate-950 dark:text-slate-100"
                         >
                             Project Files
                         </h3>
 
                         <div
                             v-if="project.files.length === 0"
-                            class="mt-4 rounded-md border border-dashed border-gray-300 bg-gray-50/60 p-5 dark:border-gray-700 dark:bg-gray-900/30"
+                            class="mt-4 rounded-md border border-dashed border-slate-300 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-950"
                         >
                             <h4
-                                class="font-semibold text-gray-900 dark:text-gray-100"
+                                class="font-semibold text-slate-950 dark:text-slate-100"
                             >
                                 No files uploaded yet
                             </h4>
                             <p
-                                class="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-400"
+                                class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400"
                             >
                                 Shared documents, creative assets, and project
                                 files will be available here once uploaded.
@@ -423,16 +418,16 @@ const updateBadgeClasses = (status) => {
                             <article
                                 v-for="file in project.files"
                                 :key="file.id"
-                                class="rounded-md border border-gray-200 p-4 dark:border-gray-700"
+                                class="rounded-md border border-slate-200 p-4 dark:border-slate-800"
                             >
                                 <div class="min-w-0">
                                     <h4
-                                        class="truncate font-semibold text-gray-900 dark:text-gray-100"
+                                        class="truncate font-semibold text-slate-950 dark:text-slate-100"
                                     >
                                         {{ file.name }}
                                     </h4>
                                     <p
-                                        class="mt-1 text-sm text-gray-500 dark:text-gray-400"
+                                        class="mt-1 text-sm text-slate-500 dark:text-slate-400"
                                     >
                                         {{ file.type || 'File' }} ·
                                         {{ file.uploaded_date }}
@@ -441,7 +436,7 @@ const updateBadgeClasses = (status) => {
 
                                 <a
                                     :href="file.download_url"
-                                    class="mt-4 inline-flex items-center rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white"
+                                    class="mt-4 inline-flex items-center rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
                                 >
                                     Download
                                 </a>
@@ -450,46 +445,46 @@ const updateBadgeClasses = (status) => {
                     </section>
 
                     <section
-                        class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg dark:bg-gray-800"
+                        class="overflow-hidden rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
                     >
                         <h3
-                            class="text-lg font-semibold text-gray-900 dark:text-gray-100"
+                            class="text-lg font-semibold text-slate-950 dark:text-slate-100"
                         >
                             Overview
                         </h3>
                         <dl class="mt-4 space-y-4 text-sm">
                             <div>
                                 <dt
-                                    class="font-medium text-gray-500 dark:text-gray-400"
+                                    class="font-medium text-slate-500 dark:text-slate-400"
                                 >
                                     Priority
                                 </dt>
                                 <dd
-                                    class="mt-1 text-gray-900 dark:text-gray-100"
+                                    class="mt-1 text-slate-950 dark:text-slate-100"
                                 >
                                     {{ project.priority }}
                                 </dd>
                             </div>
                             <div>
                                 <dt
-                                    class="font-medium text-gray-500 dark:text-gray-400"
+                                    class="font-medium text-slate-500 dark:text-slate-400"
                                 >
                                     Due Date
                                 </dt>
                                 <dd
-                                    class="mt-1 text-gray-900 dark:text-gray-100"
+                                    class="mt-1 text-slate-950 dark:text-slate-100"
                                 >
                                     {{ project.due_date || 'Not set' }}
                                 </dd>
                             </div>
                             <div>
                                 <dt
-                                    class="font-medium text-gray-500 dark:text-gray-400"
+                                    class="font-medium text-slate-500 dark:text-slate-400"
                                 >
                                     Started
                                 </dt>
                                 <dd
-                                    class="mt-1 text-gray-900 dark:text-gray-100"
+                                    class="mt-1 text-slate-950 dark:text-slate-100"
                                 >
                                     {{ project.started_at || 'Not started' }}
                                 </dd>
@@ -498,46 +493,46 @@ const updateBadgeClasses = (status) => {
                     </section>
 
                     <section
-                        class="overflow-hidden bg-white p-6 shadow-sm sm:rounded-lg dark:bg-gray-800"
+                        class="overflow-hidden rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
                     >
                         <h3
-                            class="text-lg font-semibold text-gray-900 dark:text-gray-100"
+                            class="text-lg font-semibold text-slate-950 dark:text-slate-100"
                         >
                             Activity
                         </h3>
                         <dl class="mt-4 grid grid-cols-3 gap-4 text-center">
                             <div>
                                 <dt
-                                    class="text-xs font-medium text-gray-500 dark:text-gray-400"
+                                    class="text-xs font-medium text-slate-500 dark:text-slate-400"
                                 >
                                     Updates
                                 </dt>
                                 <dd
-                                    class="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100"
+                                    class="mt-1 text-2xl font-semibold text-slate-950 dark:text-slate-100"
                                 >
                                     {{ project.updates_count }}
                                 </dd>
                             </div>
                             <div>
                                 <dt
-                                    class="text-xs font-medium text-gray-500 dark:text-gray-400"
+                                    class="text-xs font-medium text-slate-500 dark:text-slate-400"
                                 >
                                     Files
                                 </dt>
                                 <dd
-                                    class="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100"
+                                    class="mt-1 text-2xl font-semibold text-slate-950 dark:text-slate-100"
                                 >
                                     {{ project.files_count }}
                                 </dd>
                             </div>
                             <div>
                                 <dt
-                                    class="text-xs font-medium text-gray-500 dark:text-gray-400"
+                                    class="text-xs font-medium text-slate-500 dark:text-slate-400"
                                 >
                                     Tickets
                                 </dt>
                                 <dd
-                                    class="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100"
+                                    class="mt-1 text-2xl font-semibold text-slate-950 dark:text-slate-100"
                                 >
                                     {{ project.support_tickets_count }}
                                 </dd>

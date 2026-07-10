@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Project;
 use App\Models\ProjectFile;
 use App\Models\ProjectUpdate;
 use App\Models\SupportTicket;
@@ -21,7 +22,9 @@ class ClientDashboardController extends Controller
             return Inertia::render('Dashboard', [
                 'summaryCards' => $this->emptySummary($request),
                 'recentActivity' => [],
-                'quickActions' => $this->quickActions(),
+                'focusProject' => null,
+                'latestUpdates' => [],
+                'latestFiles' => [],
             ]);
         }
 
@@ -68,7 +71,9 @@ class ClientDashboardController extends Controller
                 ],
             ],
             'recentActivity' => $this->recentActivity($client->id),
-            'quickActions' => $this->quickActions(),
+            'focusProject' => $this->focusProject($client->id),
+            'latestUpdates' => $this->latestUpdates($client->id),
+            'latestFiles' => $this->latestFiles($client->id),
         ]);
     }
 
@@ -102,31 +107,6 @@ class ClientDashboardController extends Controller
                 'label' => 'Available Project Files',
                 'value' => 0,
                 'description' => 'Files ready to download',
-            ],
-        ];
-    }
-
-    /**
-     * @return array<int, array{label: string, href: string}>
-     */
-    private function quickActions(): array
-    {
-        return [
-            [
-                'label' => 'View Projects',
-                'href' => route('client.projects.index'),
-            ],
-            [
-                'label' => 'Open Support Tickets',
-                'href' => route('client.support-tickets.index'),
-            ],
-            [
-                'label' => 'Create Support Ticket',
-                'href' => route('client.support-tickets.create'),
-            ],
-            [
-                'label' => 'View Notifications',
-                'href' => route('client.notifications.index'),
             ],
         ];
     }
@@ -208,5 +188,79 @@ class ClientDashboardController extends Controller
                 'sort_date' => $comment->created_at,
                 'href' => route('client.support-tickets.show', $comment->support_ticket_id),
             ]);
+    }
+
+    /**
+     * @return array{id: int, title: string, status_label: string, progress_percentage: int, show_url: string}|null
+     */
+    private function focusProject(int $clientId): ?array
+    {
+        $project = Project::query()
+            ->where('client_id', $clientId)
+            ->where('status', '!=', 'completed')
+            ->latest()
+            ->first()
+            ?? Project::query()
+                ->where('client_id', $clientId)
+                ->latest()
+                ->first();
+
+        if (! $project) {
+            return null;
+        }
+
+        return [
+            'id' => $project->id,
+            'title' => $project->title,
+            'status_label' => $project->status_label,
+            'progress_percentage' => $project->progress_percentage,
+            'show_url' => route('client.projects.show', $project),
+        ];
+    }
+
+    /**
+     * @return array<int, array{id: int, title: string, project_title: string|null, date: string|null, show_url: string}>
+     */
+    private function latestUpdates(int $clientId): array
+    {
+        return ProjectUpdate::query()
+            ->where('status', 'published')
+            ->whereHas('project', fn ($query) => $query->where('client_id', $clientId))
+            ->with('project:id,title')
+            ->latest()
+            ->limit(3)
+            ->get()
+            ->map(fn (ProjectUpdate $update): array => [
+                'id' => $update->id,
+                'title' => $update->title,
+                'project_title' => $update->project?->title,
+                'date' => $update->created_at?->format('M j, Y'),
+                'show_url' => route('client.projects.show', $update->project_id),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, array{id: int, name: string, project_title: string|null, date: string|null, download_url: string}>
+     */
+    private function latestFiles(int $clientId): array
+    {
+        return ProjectFile::query()
+            ->where('status', ProjectFile::STATUS_AVAILABLE)
+            ->whereHas('project', fn ($query) => $query->where('client_id', $clientId))
+            ->with('project:id,title')
+            ->latest()
+            ->limit(4)
+            ->get()
+            ->map(fn (ProjectFile $file): array => [
+                'id' => $file->id,
+                'name' => $file->name,
+                'project_title' => $file->project?->title,
+                'date' => $file->created_at?->format('M j, Y'),
+                'download_url' => route('client.project-files.download', $file),
+            ])
+            ->values()
+            ->all();
     }
 }
