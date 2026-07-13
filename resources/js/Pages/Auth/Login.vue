@@ -5,7 +5,7 @@ import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 
 defineProps({
     canResetPassword: {
@@ -22,6 +22,8 @@ const form = useForm({
     remember: false,
 });
 
+const page = usePage();
+
 const submit = () => {
     form.post(route('login'), {
         onFinish: () => form.reset('password'),
@@ -35,6 +37,13 @@ const submit = () => {
 
         <div v-if="status" class="mb-4 text-sm font-medium text-green-600">
             {{ status }}
+        </div>
+
+        <div
+            v-if="page.props.flash?.error"
+            class="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200"
+        >
+            {{ page.props.flash.error }}
         </div>
 
         <form @submit.prevent="submit">

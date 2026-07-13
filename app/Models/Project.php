@@ -27,6 +27,7 @@ class Project extends Model
         'description',
         'status',
         'priority',
+        'progress_percentage',
         'due_date',
         'started_at',
         'completed_at',
@@ -85,6 +86,10 @@ class Project extends Model
 
     public function getProgressPercentageAttribute(): int
     {
+        if ($this->attributes['progress_percentage'] ?? null) {
+            return (int) $this->attributes['progress_percentage'];
+        }
+
         return self::STATUS_PROGRESS[$this->status] ?? 0;
     }
 

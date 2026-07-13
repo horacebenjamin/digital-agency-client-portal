@@ -29,6 +29,7 @@ class ProjectFactory extends Factory
             'description' => fake()->paragraphs(2, true),
             'status' => $status,
             'priority' => fake()->randomElement(['low', 'medium', 'high']),
+            'progress_percentage' => null,
             'due_date' => fake()->optional(0.8)->dateTimeBetween('now', '+4 months'),
             'started_at' => $startedAt,
             'completed_at' => $status === 'completed' ? fake()->dateTimeBetween($startedAt ?? '-2 months', 'now') : null,

@@ -67,7 +67,7 @@ class AccessControlTest extends TestCase
 
         $response = $this->actingAs($admin)->get('/dashboard');
 
-        $response->assertStatus(200);
+        $response->assertRedirect('/admin');
     }
 
     public function test_client_can_access_dashboard(): void
@@ -87,7 +87,7 @@ class AccessControlTest extends TestCase
 
         $response = $this->actingAs($pm)->get('/dashboard');
 
-        $response->assertStatus(403);
+        $response->assertRedirect('/admin');
     }
 
     public function test_developer_cannot_access_dashboard_without_client_link(): void
@@ -97,7 +97,7 @@ class AccessControlTest extends TestCase
 
         $response = $this->actingAs($developer)->get('/dashboard');
 
-        $response->assertStatus(403);
+        $response->assertRedirect('/admin');
     }
 
     public function test_project_manager_can_access_dashboard_with_client_link(): void
@@ -139,11 +139,60 @@ class AccessControlTest extends TestCase
 
         $response = $this->actingAs($admin)->get('/dashboard');
 
-        $response->assertStatus(200);
-        $response->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard')
-            ->has('summaryCards', 5)
-            ->where('summaryCards.0.value', 0)
-        );
+        $response->assertRedirect('/admin');
+    }
+
+    public function test_unauthorised_authenticated_user_is_not_shown_raw_403(): void
+    {
+        $user = User::factory()->create(['client_id' => null]);
+
+        $response = $this->actingAs($user)->get('/dashboard');
+
+        $response
+            ->assertStatus(302)
+            ->assertRedirect(route('login'));
+    }
+
+    public function test_unauthorised_non_admin_user_is_logged_out_and_redirected_to_login(): void
+    {
+        $user = User::factory()->create(['client_id' => null]);
+
+        $response = $this->actingAs($user)->get('/dashboard');
+
+        $response
+            ->assertRedirect(route('login'))
+            ->assertSessionHas('error', 'This account does not have access to the client portal. Please sign in with an authorised client account.');
+
+        $this->assertGuest();
+    }
+
+    public function test_staff_user_is_redirected_to_admin_with_flash_error(): void
+    {
+        $developer = User::factory()->create(['client_id' => null]);
+        $developer->assignRole('developer');
+
+        $response = $this->actingAs($developer)->get('/dashboard');
+
+        $response
+            ->assertRedirect('/admin')
+            ->assertSessionHas('error', 'This account does not have access to the client portal. Please sign in with an authorised client account.');
+
+        $this->assertAuthenticatedAs($developer);
+    }
+
+    public function test_login_redirect_does_not_create_loop_after_wrong_account_is_logged_out(): void
+    {
+        $user = User::factory()->create(['client_id' => null]);
+
+        $this->actingAs($user)
+            ->get('/dashboard')
+            ->assertRedirect(route('login'));
+
+        $this->get('/login')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Auth/Login')
+                ->where('flash.error', 'This account does not have access to the client portal. Please sign in with an authorised client account.')
+            );
     }
 }
