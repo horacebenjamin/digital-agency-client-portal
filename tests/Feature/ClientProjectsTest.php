@@ -67,6 +67,31 @@ class ClientProjectsTest extends TestCase
                 ->where('project.status_label', 'In Progress')
                 ->where('project.progress_percentage', 50)
                 ->where('project.ai_summary_generated_at', '2026-07-22T14:30:00+00:00')
+                ->where('project.ai_summary_has_new_activity', false)
+            );
+    }
+
+    public function test_client_is_told_when_project_activity_is_newer_than_the_saved_summary(): void
+    {
+        $client = Client::factory()->create();
+        $user = User::factory()->create(['client_id' => $client->id]);
+        $project = Project::factory()->for($client)->create([
+            'ai_summary' => 'Previously generated summary.',
+            'ai_summary_status' => 'completed',
+            'ai_summary_generated_at' => Carbon::parse('2026-07-22 10:00:00'),
+        ]);
+
+        ProjectUpdate::factory()->for($project)->create([
+            'status' => 'published',
+            'created_at' => Carbon::parse('2026-07-22 11:00:00'),
+            'updated_at' => Carbon::parse('2026-07-22 11:00:00'),
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('client.projects.show', $project))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('project.ai_summary_has_new_activity', true)
             );
     }
 

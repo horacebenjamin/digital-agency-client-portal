@@ -6,6 +6,7 @@ use App\Models\Project;
 use App\Models\ProjectFile;
 use App\Models\ProjectUpdate;
 use App\Services\ProjectActivityTimeline;
+use App\Services\ProjectSummaryFreshness;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
@@ -35,8 +36,11 @@ class ClientProjectController extends Controller
         ]);
     }
 
-    public function show(Project $project, ProjectActivityTimeline $timeline): Response
-    {
+    public function show(
+        Project $project,
+        ProjectActivityTimeline $timeline,
+        ProjectSummaryFreshness $summaryFreshness,
+    ): Response {
         Gate::authorize('view', $project);
 
         $project->load([
@@ -68,6 +72,7 @@ class ClientProjectController extends Controller
                 'ai_summary_status' => $project->ai_summary_status,
                 'ai_summary_error' => $project->ai_summary_error,
                 'ai_summary_generated_at' => $project->ai_summary_generated_at?->toIso8601String(),
+                'ai_summary_has_new_activity' => $summaryFreshness->hasNewActivity($project),
                 'files' => $project->files
                     ->map(fn (ProjectFile $file): array => $this->serializeProjectFile($file))
                     ->values(),

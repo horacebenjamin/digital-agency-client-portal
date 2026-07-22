@@ -14,6 +14,9 @@ const aiSummary = ref(props.project.ai_summary || '');
 const aiSummaryError = ref(props.project.ai_summary_error || '');
 const aiSummaryStatus = ref(props.project.ai_summary_status || 'idle');
 const aiSummaryGeneratedAt = ref(props.project.ai_summary_generated_at || '');
+const aiSummaryHasNewActivity = ref(
+    props.project.ai_summary_has_new_activity || false,
+);
 const isAiSummaryExpanded = ref(false);
 const aiSummaryLoading = computed(() => aiSummaryStatus.value === 'generating');
 const formattedAiSummaryGeneratedAt = computed(() => {
@@ -65,6 +68,7 @@ const applyAiSummaryPayload = (payload) => {
     }
 
     if (aiSummaryStatus.value === 'completed' && aiSummary.value) {
+        aiSummaryHasNewActivity.value = false;
         isAiSummaryExpanded.value = true;
     }
 };
@@ -390,6 +394,13 @@ const updateBadgeClasses = (status) => {
                             </div>
 
                             <div class="flex flex-wrap gap-2">
+                                <span
+                                    v-if="aiSummaryHasNewActivity && !aiSummaryLoading"
+                                    class="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                                >
+                                    New activity available
+                                </span>
+
                                 <button
                                     v-if="aiSummary && !aiSummaryLoading"
                                     type="button"
