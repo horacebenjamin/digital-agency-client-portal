@@ -54,6 +54,7 @@ class ClientProjectsTest extends TestCase
         $project = Project::factory()->for($client)->create([
             'title' => 'Client Portal Launch',
             'status' => 'in_progress',
+            'ai_summary_generated_at' => Carbon::parse('2026-07-22 14:30:00'),
         ]);
 
         $response = $this->actingAs($user)->get(route('client.projects.show', $project));
@@ -65,6 +66,7 @@ class ClientProjectsTest extends TestCase
                 ->where('project.title', 'Client Portal Launch')
                 ->where('project.status_label', 'In Progress')
                 ->where('project.progress_percentage', 50)
+                ->where('project.ai_summary_generated_at', '2026-07-22T14:30:00+00:00')
             );
     }
 

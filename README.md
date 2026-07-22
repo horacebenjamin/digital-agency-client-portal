@@ -71,6 +71,22 @@ php artisan migrate:fresh --seed
 npm run dev
 ```
 
+## Local Development
+
+AI project summaries are processed by Laravel's queue, so a queue worker must be running while developing.
+
+If Laravel Valet is already serving the application, run the queue listener and Vite in separate terminals:
+
+```bash
+php artisan queue:listen --tries=1 --timeout=0
+```
+
+```bash
+npm run dev
+```
+
+The project's `composer run dev` command also starts the Laravel development server and Laravel Pail. Pail requires the `pcntl` PHP extension, which is not available in native Windows PHP environments. Valet users on Windows should therefore use the two commands above; `php artisan serve` and Pail are not required.
+
 ## Demo Data
 
 Reset and seed the database with realistic demo data:

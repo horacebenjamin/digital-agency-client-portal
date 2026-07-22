@@ -67,6 +67,7 @@ class ClientProjectController extends Controller
                 'ai_summary' => $project->ai_summary,
                 'ai_summary_status' => $project->ai_summary_status,
                 'ai_summary_error' => $project->ai_summary_error,
+                'ai_summary_generated_at' => $project->ai_summary_generated_at?->toIso8601String(),
                 'files' => $project->files
                     ->map(fn (ProjectFile $file): array => $this->serializeProjectFile($file))
                     ->values(),

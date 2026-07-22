@@ -13,7 +13,38 @@ const props = defineProps({
 const aiSummary = ref(props.project.ai_summary || '');
 const aiSummaryError = ref(props.project.ai_summary_error || '');
 const aiSummaryStatus = ref(props.project.ai_summary_status || 'idle');
+const aiSummaryGeneratedAt = ref(props.project.ai_summary_generated_at || '');
+const isAiSummaryExpanded = ref(false);
 const aiSummaryLoading = computed(() => aiSummaryStatus.value === 'generating');
+const formattedAiSummaryGeneratedAt = computed(() => {
+    if (!aiSummaryGeneratedAt.value) {
+        return '';
+    }
+
+    const generatedAt = new Date(aiSummaryGeneratedAt.value);
+
+    if (Number.isNaN(generatedAt.getTime())) {
+        return '';
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+    }).format(generatedAt);
+});
+const aiSummarySections = computed(() =>
+    aiSummary.value
+        .split(/\n\s*\n/)
+        .map((section) => section.trim())
+        .filter(Boolean)
+        .map((section) => {
+            const heading = section.match(/^\*\*(.+)\*\*$/s);
+
+            return heading
+                ? { type: 'heading', text: heading[1] }
+                : { type: 'paragraph', text: section.replaceAll('**', '') };
+        }),
+);
 let aiSummaryPoll = null;
 
 const stopAiSummaryPolling = () => {
@@ -27,9 +58,14 @@ const applyAiSummaryPayload = (payload) => {
     aiSummaryStatus.value = payload.status || 'idle';
     aiSummary.value = payload.summary || '';
     aiSummaryError.value = payload.message || '';
+    aiSummaryGeneratedAt.value = payload.generated_at || '';
 
     if (aiSummaryStatus.value !== 'generating') {
         stopAiSummaryPolling();
+    }
+
+    if (aiSummaryStatus.value === 'completed' && aiSummary.value) {
+        isAiSummaryExpanded.value = true;
     }
 };
 
@@ -60,6 +96,7 @@ const startAiSummaryPolling = () => {
 const generateAiSummary = async () => {
     aiSummaryStatus.value = 'generating';
     aiSummaryError.value = '';
+    isAiSummaryExpanded.value = false;
 
     try {
         const response = await window.axios.post(props.project.ai_summary_url);
@@ -352,18 +389,37 @@ const updateBadgeClasses = (status) => {
                                 </p>
                             </div>
 
-                            <button
-                                type="button"
-                                :disabled="aiSummaryLoading"
-                                class="inline-flex w-fit items-center rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
-                                @click="generateAiSummary"
-                            >
-                                {{
-                                    aiSummaryLoading
-                                        ? 'Generating...'
-                                        : 'Generate Summary'
-                                }}
-                            </button>
+                            <div class="flex flex-wrap gap-2">
+                                <button
+                                    v-if="aiSummary && !aiSummaryLoading"
+                                    type="button"
+                                    class="inline-flex w-fit items-center rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                                    :aria-expanded="isAiSummaryExpanded"
+                                    aria-controls="ai-project-summary-content"
+                                    @click="isAiSummaryExpanded = !isAiSummaryExpanded"
+                                >
+                                    {{
+                                        isAiSummaryExpanded
+                                            ? 'Hide Summary'
+                                            : 'View Saved Summary'
+                                    }}
+                                </button>
+
+                                <button
+                                    type="button"
+                                    :disabled="aiSummaryLoading"
+                                    class="inline-flex w-fit items-center rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
+                                    @click="generateAiSummary"
+                                >
+                                    {{
+                                        aiSummaryLoading
+                                            ? 'Generating...'
+                                            : aiSummary
+                                              ? 'Regenerate Summary'
+                                              : 'Generate Summary'
+                                    }}
+                                </button>
+                            </div>
                         </div>
 
                         <div
@@ -380,12 +436,33 @@ const updateBadgeClasses = (status) => {
                             {{ aiSummaryError }}
                         </div>
 
-                        <p
-                            v-if="aiSummary"
-                            class="mt-4 whitespace-pre-line text-sm leading-6 text-slate-600 dark:text-slate-300"
+                        <div
+                            v-if="aiSummary && isAiSummaryExpanded"
+                            id="ai-project-summary-content"
+                            class="mt-4 flex flex-col gap-3 text-sm leading-6 text-slate-600 dark:text-slate-300"
                         >
-                            {{ aiSummary }}
-                        </p>
+                            <p
+                                v-if="formattedAiSummaryGeneratedAt"
+                                class="text-xs text-slate-500 dark:text-slate-400"
+                            >
+                                Generated {{ formattedAiSummaryGeneratedAt }}
+                            </p>
+
+                            <template
+                                v-for="(section, index) in aiSummarySections"
+                                :key="index"
+                            >
+                                <h4
+                                    v-if="section.type === 'heading'"
+                                    class="font-semibold text-slate-950 dark:text-slate-100"
+                                >
+                                    {{ section.text }}
+                                </h4>
+                                <p v-else class="whitespace-pre-line">
+                                    {{ section.text }}
+                                </p>
+                            </template>
+                        </div>
                     </section>
 
                     <section
