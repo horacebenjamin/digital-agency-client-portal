@@ -12,5 +12,5 @@ interface AIProvider
     /**
      * @param  array<string, mixed>  $options
      */
-    public function stream(string $prompt, callable $onChunk, array $options = []): void;
+    public function stream(string $prompt, callable $onChunk, array $options = []): AIStreamResult;
 }

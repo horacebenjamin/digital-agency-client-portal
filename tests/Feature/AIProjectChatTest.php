@@ -2,11 +2,19 @@
 
 namespace Tests\Feature;
 
+use App\AI\AIChatStreamProtocol;
+use App\AI\AIProjectChatLock;
+use App\AI\AIProviderException;
 use App\AI\AIService;
+use App\AI\AIStreamCancelledException;
+use App\AI\AIStreamResult;
+use App\Http\Requests\ProjectChatRequest;
 use App\Models\Client;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Mockery;
 use Tests\TestCase;
 
@@ -41,8 +49,10 @@ class AIProjectChatTest extends TestCase
                     'think' => false,
                 ],
             )
-            ->andReturnUsing(function ($prompt, $onChunk) {
+            ->andReturnUsing(function ($prompt, $onChunk): AIStreamResult {
                 $onChunk('Test response chunk');
+
+                return AIStreamResult::completed();
             });
 
         $this->app->instance(AIService::class, $mockAi);
@@ -55,7 +65,11 @@ class AIProjectChatTest extends TestCase
             ]);
 
         $response->assertOk();
-        $this->assertEquals('Test response chunk', $response->streamedContent());
+        $this->assertSame(
+            'Test response chunk'.AIChatStreamProtocol::completed(AIStreamResult::completed()),
+            $response->streamedContent(),
+        );
+        $this->assertChatLockIsAvailable();
     }
 
     public function test_chat_accepts_the_exact_vue_transport_payload_with_history(): void
@@ -64,13 +78,16 @@ class AIProjectChatTest extends TestCase
         $mockAi->shouldReceive('streamText')
             ->once()
             ->with(
-                Mockery::on(fn (string $prompt): bool => str_contains($prompt, 'Assistant: Previous answer')
+                Mockery::on(fn (string $prompt): bool => str_contains($prompt, '"role": "assistant"')
+                    && str_contains($prompt, '"content": "Previous answer"')
                     && str_contains($prompt, 'Summarise this project')),
                 Mockery::type('callable'),
                 Mockery::any(),
             )
-            ->andReturnUsing(function ($prompt, $onChunk) {
+            ->andReturnUsing(function ($prompt, $onChunk): AIStreamResult {
                 $onChunk('Current answer');
+
+                return AIStreamResult::completed();
             });
 
         $this->app->instance(AIService::class, $mockAi);
@@ -85,7 +102,7 @@ class AIProjectChatTest extends TestCase
             ]);
 
         $response->assertOk();
-        $this->assertSame('Current answer', $response->streamedContent());
+        $this->assertStringStartsWith('Current answer', $response->streamedContent());
     }
 
     public function test_next_actions_request_is_not_labelled_client_update(): void
@@ -174,6 +191,260 @@ class AIProjectChatTest extends TestCase
         $response->assertJsonValidationErrors(['messages']);
     }
 
+    public function test_empty_user_message_is_rejected(): void
+    {
+        $response = $this->actingAs($this->user)
+            ->postJson(route('client.projects.chat', $this->project), [
+                'messages' => [
+                    ['role' => 'user', 'content' => ''],
+                ],
+            ]);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['messages.0.content']);
+    }
+
+    public function test_whitespace_only_user_message_is_rejected(): void
+    {
+        $response = $this->actingAs($this->user)
+            ->postJson(route('client.projects.chat', $this->project), [
+                'messages' => [
+                    ['role' => 'user', 'content' => " \n\t "],
+                ],
+            ]);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['messages.0.content']);
+    }
+
+    public function test_overlong_user_message_is_rejected(): void
+    {
+        $response = $this->actingAs($this->user)
+            ->postJson(route('client.projects.chat', $this->project), [
+                'messages' => [
+                    [
+                        'role' => 'user',
+                        'content' => str_repeat('a', ProjectChatRequest::MAX_USER_MESSAGE_LENGTH + 1),
+                    ],
+                ],
+            ]);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'messages.0.content' => 'Messages must be 2,000 characters or fewer.',
+            ]);
+    }
+
+    public function test_concurrent_duplicate_request_is_rejected(): void
+    {
+        $lock = Cache::lock(
+            "ai-project-chat:{$this->user->getAuthIdentifier()}:{$this->project->getKey()}",
+            10,
+        );
+        $this->assertTrue($lock->get());
+
+        try {
+            $response = $this->actingAs($this->user)
+                ->postJson(route('client.projects.chat', $this->project), [
+                    'messages' => [
+                        ['role' => 'user', 'content' => 'What is next?'],
+                    ],
+                ]);
+
+            $response->assertConflict();
+            $this->assertSame(
+                'The assistant is already responding. Please wait and try again.',
+                $response->getContent(),
+            );
+        } finally {
+            $lock->release();
+        }
+    }
+
+    public function test_provider_failure_returns_only_a_safe_stream_event(): void
+    {
+        $mockAi = Mockery::mock(AIService::class);
+        $mockAi->shouldReceive('streamText')
+            ->once()
+            ->andThrow(new AIProviderException('Ollama model qwen3 failed at http://internal-host'));
+
+        $this->app->instance(AIService::class, $mockAi);
+
+        $response = $this->actingAs($this->user)
+            ->postJson(route('client.projects.chat', $this->project), [
+                'messages' => [
+                    ['role' => 'user', 'content' => 'What is next?'],
+                ],
+            ]);
+
+        $response->assertOk();
+        $content = $response->streamedContent();
+
+        $this->assertSame(AIChatStreamProtocol::failed(), $content);
+        $this->assertStringNotContainsString('qwen3', $content);
+        $this->assertStringNotContainsString('internal-host', $content);
+        $this->assertChatLockIsAvailable();
+    }
+
+    public function test_timeout_releases_the_chat_lock(): void
+    {
+        $mockAi = Mockery::mock(AIService::class);
+        $mockAi->shouldReceive('streamText')
+            ->once()
+            ->andThrow(new AIProviderException('The provider timed out.'));
+
+        $this->app->instance(AIService::class, $mockAi);
+
+        $response = $this->actingAs($this->user)
+            ->postJson(route('client.projects.chat', $this->project), [
+                'messages' => [
+                    ['role' => 'user', 'content' => 'What is next?'],
+                ],
+            ]);
+
+        $response->assertOk();
+        $this->assertSame(AIChatStreamProtocol::failed(), $response->streamedContent());
+        $this->assertChatLockIsAvailable();
+    }
+
+    public function test_interrupted_stream_releases_the_chat_lock(): void
+    {
+        $mockAi = Mockery::mock(AIService::class);
+        $mockAi->shouldReceive('streamText')
+            ->once()
+            ->andThrow(new AIStreamCancelledException('Client disconnected.'));
+
+        $this->app->instance(AIService::class, $mockAi);
+
+        $response = $this->actingAs($this->user)
+            ->postJson(route('client.projects.chat', $this->project), [
+                'messages' => [
+                    ['role' => 'user', 'content' => 'What is next?'],
+                ],
+            ]);
+
+        $response->assertOk();
+        $this->assertSame('', $response->streamedContent());
+        $this->assertChatLockIsAvailable();
+    }
+
+    public function test_client_cancellation_releases_the_chat_lock(): void
+    {
+        $requestId = Str::uuid()->toString();
+
+        $activeResponse = $this->actingAs($this->user)
+            ->postJson(route('client.projects.chat', $this->project), [
+                'request_id' => $requestId,
+                'messages' => [
+                    ['role' => 'user', 'content' => 'Write a long response.'],
+                ],
+            ]);
+
+        $activeResponse->assertOk();
+
+        $this->actingAs($this->user)
+            ->postJson(route('client.projects.chat.cancel', $this->project), [
+                'request_id' => $requestId,
+            ])
+            ->assertNoContent();
+
+        $this->assertChatLockIsAvailable();
+    }
+
+    public function test_new_chat_cancellation_allows_an_immediate_new_request(): void
+    {
+        $this->assertCancellationAllowsImmediateRequest('Start a new chat.');
+    }
+
+    public function test_panel_close_cancellation_allows_a_later_request(): void
+    {
+        $this->assertCancellationAllowsImmediateRequest('Close the chat panel.');
+    }
+
+    public function test_stale_request_cannot_release_another_requests_lock(): void
+    {
+        $firstRequestId = Str::uuid()->toString();
+        $secondRequestId = Str::uuid()->toString();
+        $mockAi = Mockery::mock(AIService::class);
+        $mockAi->shouldReceive('streamText')
+            ->once()
+            ->andReturnUsing(function (string $prompt, callable $onChunk): AIStreamResult {
+                $onChunk('Old response');
+
+                return AIStreamResult::completed();
+            });
+
+        $this->app->instance(AIService::class, $mockAi);
+
+        $firstResponse = $this->actingAs($this->user)
+            ->postJson(route('client.projects.chat', $this->project), [
+                'request_id' => $firstRequestId,
+                'messages' => [
+                    ['role' => 'user', 'content' => 'First request'],
+                ],
+            ]);
+
+        $this->actingAs($this->user)
+            ->postJson(route('client.projects.chat.cancel', $this->project), [
+                'request_id' => $firstRequestId,
+            ])
+            ->assertNoContent();
+
+        $secondResponse = $this->actingAs($this->user)
+            ->postJson(route('client.projects.chat', $this->project), [
+                'request_id' => $secondRequestId,
+                'messages' => [
+                    ['role' => 'user', 'content' => 'Second request'],
+                ],
+            ]);
+        $secondResponse->assertOk();
+
+        $this->assertStringStartsWith('Old response', $firstResponse->streamedContent());
+
+        $this->actingAs($this->user)
+            ->postJson(route('client.projects.chat', $this->project), [
+                'request_id' => Str::uuid()->toString(),
+                'messages' => [
+                    ['role' => 'user', 'content' => 'Third request'],
+                ],
+            ])
+            ->assertConflict();
+
+        $this->actingAs($this->user)
+            ->postJson(route('client.projects.chat.cancel', $this->project), [
+                'request_id' => $secondRequestId,
+            ])
+            ->assertNoContent();
+    }
+
+    public function test_truncated_response_keeps_partial_content_and_reports_length_limit(): void
+    {
+        $mockAi = Mockery::mock(AIService::class);
+        $mockAi->shouldReceive('streamText')
+            ->once()
+            ->andReturnUsing(function (string $prompt, callable $onChunk): AIStreamResult {
+                $onChunk('Partial response that remains visible.');
+
+                return AIStreamResult::lengthLimited();
+            });
+
+        $this->app->instance(AIService::class, $mockAi);
+
+        $response = $this->actingAs($this->user)
+            ->postJson(route('client.projects.chat', $this->project), [
+                'messages' => [
+                    ['role' => 'user', 'content' => 'Give me every detail.'],
+                ],
+            ]);
+
+        $response->assertOk();
+        $this->assertSame(
+            'Partial response that remains visible.'
+                .AIChatStreamProtocol::completed(AIStreamResult::lengthLimited()),
+            $response->streamedContent(),
+        );
+    }
+
     public function test_chat_uses_stored_summary_when_available(): void
     {
         $this->project->update(['ai_summary' => 'This is a stored summary']);
@@ -189,8 +460,10 @@ class AIProjectChatTest extends TestCase
                 Mockery::any(),
                 Mockery::any()
             )
-            ->andReturnUsing(function ($prompt, $onChunk) {
+            ->andReturnUsing(function ($prompt, $onChunk): AIStreamResult {
                 $onChunk('Ok');
+
+                return AIStreamResult::completed();
             });
 
         $this->app->instance(AIService::class, $mockAi);
@@ -220,8 +493,10 @@ class AIProjectChatTest extends TestCase
                 Mockery::any(),
                 Mockery::any()
             )
-            ->andReturnUsing(function ($prompt, $onChunk) {
+            ->andReturnUsing(function ($prompt, $onChunk): AIStreamResult {
                 $onChunk('Ok');
+
+                return AIStreamResult::completed();
             });
 
         $this->app->instance(AIService::class, $mockAi);
@@ -243,9 +518,11 @@ class AIProjectChatTest extends TestCase
         $mockAi = Mockery::mock(AIService::class);
         $mockAi->shouldReceive('streamText')
             ->once()
-            ->andReturnUsing(function (string $prompt, callable $onChunk) use (&$capturedPrompt): void {
+            ->andReturnUsing(function (string $prompt, callable $onChunk) use (&$capturedPrompt): AIStreamResult {
                 $capturedPrompt = $prompt;
                 $onChunk('Test response');
+
+                return AIStreamResult::completed();
             });
 
         $this->app->instance(AIService::class, $mockAi);
@@ -261,8 +538,63 @@ class AIProjectChatTest extends TestCase
         $response->streamedContent();
 
         $this->assertIsString($capturedPrompt);
-        $this->assertStringContainsString("User Question:\n{$question}", $capturedPrompt);
+        $this->assertStringContainsString("User Question:\n\"{$question}\"", $capturedPrompt);
 
         return $capturedPrompt;
+    }
+
+    private function assertCancellationAllowsImmediateRequest(string $cancelledQuestion): void
+    {
+        $cancelledRequestId = Str::uuid()->toString();
+        $mockAi = Mockery::mock(AIService::class);
+        $mockAi->shouldReceive('streamText')
+            ->once()
+            ->andReturnUsing(function (string $prompt, callable $onChunk): AIStreamResult {
+                $onChunk('New response');
+
+                return AIStreamResult::completed();
+            });
+
+        $this->app->instance(AIService::class, $mockAi);
+
+        $activeResponse = $this->actingAs($this->user)
+            ->postJson(route('client.projects.chat', $this->project), [
+                'request_id' => $cancelledRequestId,
+                'messages' => [
+                    ['role' => 'user', 'content' => $cancelledQuestion],
+                ],
+            ]);
+        $activeResponse->assertOk();
+
+        $this->actingAs($this->user)
+            ->postJson(route('client.projects.chat.cancel', $this->project), [
+                'request_id' => $cancelledRequestId,
+            ])
+            ->assertNoContent();
+
+        $nextResponse = $this->actingAs($this->user)
+            ->postJson(route('client.projects.chat', $this->project), [
+                'request_id' => Str::uuid()->toString(),
+                'messages' => [
+                    ['role' => 'user', 'content' => 'Can I send now?'],
+                ],
+            ]);
+
+        $nextResponse->assertOk();
+        $this->assertStringStartsWith('New response', $nextResponse->streamedContent());
+    }
+
+    private function assertChatLockIsAvailable(): void
+    {
+        $lock = Cache::lock(
+            AIProjectChatLock::lockName(
+                $this->user->getAuthIdentifier(),
+                $this->project->getKey(),
+            ),
+            10,
+        );
+
+        $this->assertTrue($lock->get());
+        $lock->release();
     }
 }

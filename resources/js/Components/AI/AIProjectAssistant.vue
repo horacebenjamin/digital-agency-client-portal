@@ -1,7 +1,6 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { useChat } from '@ai-sdk/vue';
-import { TextStreamChatTransport } from 'ai';
 import { Button } from '@/Components/UI/ui/button';
 import {
     AlertDialog,
@@ -33,7 +32,12 @@ import ChatMessage from './ChatMessage.vue';
 import ChatSuggestions from './ChatSuggestions.vue';
 import TypingIndicator from './TypingIndicator.vue';
 import {
+    cancelProjectChatRequest,
     createChatRequestBody,
+    getProjectChatCompletionNotice,
+    ProjectChatTransport,
+    runSingleSubmission,
+    SAFE_CHAT_ERROR_MESSAGE,
     sendProjectChatMessage,
 } from './chatTransport.js';
 import {
@@ -54,6 +58,9 @@ const props = defineProps({
 const isOpen = ref(false);
 const isNewChatDialogOpen = ref(false);
 const isResettingChat = ref(false);
+const isSubmitting = ref(false);
+const completionNotice = ref('');
+const activeRequestId = ref(null);
 const focusComposerAfterDialog = ref(false);
 const conversationRef = ref(null);
 const chatInputRef = ref(null);
@@ -68,16 +75,24 @@ const getCsrfToken = () => {
     return tokenCookie ? decodeURIComponent(tokenCookie.split('=').slice(1).join('=')) : '';
 };
 
-const transport = new TextStreamChatTransport({
+const transport = new ProjectChatTransport({
     api: route('client.projects.chat', props.project.id),
     credentials: 'same-origin',
     headers: () => ({
         Accept: 'text/plain',
         'X-XSRF-TOKEN': getCsrfToken(),
     }),
-    prepareSendMessagesRequest: ({ messages: requestMessages }) => ({
-        body: createChatRequestBody(requestMessages),
-    }),
+    prepareSendMessagesRequest: ({ messages: requestMessages }) => {
+        const requestId = globalThis.crypto.randomUUID();
+        activeRequestId.value = requestId;
+
+        return {
+            body: createChatRequestBody(requestMessages, requestId),
+        };
+    },
+    onStreamEvent: (event) => {
+        completionNotice.value = getProjectChatCompletionNotice(event);
+    },
 });
 
 const {
@@ -91,25 +106,32 @@ const {
 } = useChat({
     transport,
     messages: [],
-    onError: (chatError) => {
-        if (import.meta.env.DEV) {
-            console.error('AI Project Assistant request failed:', chatError);
-        }
-    },
 });
 
-const isLoading = computed(() => status.value === 'submitted' || status.value === 'streaming');
-const errorMessage = computed(() => {
-    const technicalMessage = error.value?.message || '';
+const isSdkLoading = computed(() => status.value === 'submitted' || status.value === 'streaming');
+const isLoading = computed(() => isSubmitting.value || isSdkLoading.value);
+const errorMessage = computed(() => SAFE_CHAT_ERROR_MESSAGE);
+const cancelChatApi = route('client.projects.chat.cancel', props.project.id);
 
-    if (/504|gateway time-out|network error/i.test(technicalMessage)) {
-        return 'The AI provider took too long to respond. Please try again.';
+const isConversationNearBottom = () => {
+    if (!conversationRef.value) {
+        return true;
     }
 
-    return 'The AI service is currently unavailable. Please try again.';
-});
+    const distanceFromBottom = conversationRef.value.scrollHeight
+        - conversationRef.value.scrollTop
+        - conversationRef.value.clientHeight;
 
-const scrollToBottom = async () => {
+    return distanceFromBottom <= 96;
+};
+
+const shouldAutoScroll = ref(true);
+
+const scrollToBottom = async (force = false) => {
+    if (!force && !shouldAutoScroll.value) {
+        return;
+    }
+
     await nextTick();
 
     if (scrollFrame) {
@@ -117,7 +139,7 @@ const scrollToBottom = async () => {
     }
 
     scrollFrame = requestAnimationFrame(() => {
-        if (!conversationRef.value) {
+        if (!conversationRef.value || (!force && !shouldAutoScroll.value)) {
             return;
         }
 
@@ -128,13 +150,51 @@ const scrollToBottom = async () => {
     });
 };
 
+const handleConversationScroll = () => {
+    shouldAutoScroll.value = isConversationNearBottom();
+};
+
 const handleOpenAutoFocus = (event) => {
     event.preventDefault();
     nextTick(() => chatInputRef.value?.focus());
 };
 
 const sendMessage = (content) => {
-    return sendProjectChatMessage(sendChatMessage, content);
+    return runSingleSubmission({
+        isBusy: () => isLoading.value,
+        setBusy: (busy) => {
+            isSubmitting.value = busy;
+        },
+        submit: async () => {
+            completionNotice.value = '';
+            clearError();
+
+            try {
+                await sendProjectChatMessage(sendChatMessage, content);
+            } finally {
+                activeRequestId.value = null;
+            }
+        },
+    });
+};
+
+const retryLastMessage = () => {
+    return runSingleSubmission({
+        isBusy: () => isLoading.value,
+        setBusy: (busy) => {
+            isSubmitting.value = busy;
+        },
+        submit: async () => {
+            completionNotice.value = '';
+            clearError();
+
+            try {
+                await regenerate();
+            } finally {
+                activeRequestId.value = null;
+            }
+        },
+    });
 };
 
 const focusNewChatButton = () => {
@@ -143,7 +203,7 @@ const focusNewChatButton = () => {
 };
 
 const waitForStreamToSettle = () => {
-    if (!isLoading.value) {
+    if (!isSdkLoading.value) {
         return Promise.resolve();
     }
 
@@ -159,17 +219,45 @@ const waitForStreamToSettle = () => {
     });
 };
 
+const cancelActiveServerRequest = async (requestId) => {
+    await cancelProjectChatRequest({
+        api: cancelChatApi,
+        csrfToken: getCsrfToken(),
+        requestId,
+    });
+
+    if (activeRequestId.value === requestId) {
+        activeRequestId.value = null;
+    }
+};
+
+const stopActiveResponse = async () => {
+    const requestId = activeRequestId.value;
+
+    if (isLoading.value) {
+        await Promise.all([
+            stop(),
+            cancelActiveServerRequest(requestId),
+        ]);
+        await waitForStreamToSettle();
+    }
+
+    isSubmitting.value = false;
+};
+
 const resetCurrentChat = async () => {
     if (isResettingChat.value) {
         return;
     }
 
     isResettingChat.value = true;
+    const requestId = activeRequestId.value;
 
     try {
         await resetChatSession({
             isStreaming: () => isLoading.value,
             stopStream: stop,
+            cancelServerRequest: () => cancelActiveServerRequest(requestId),
             waitForStreamToSettle,
             clearMessages: () => {
                 messages.value = [];
@@ -181,6 +269,9 @@ const resetCurrentChat = async () => {
                 chatInputRef.value?.focus();
             },
         });
+        completionNotice.value = '';
+        isSubmitting.value = false;
+        shouldAutoScroll.value = true;
     } finally {
         isResettingChat.value = false;
         focusComposerAfterDialog.value = false;
@@ -219,15 +310,25 @@ const handleNewChatDialogCloseAutoFocus = (event) => {
     nextTick(() => restoreNewChatTriggerFocus(focusNewChatButton));
 };
 
-watch(messages, scrollToBottom, { deep: true });
-watch(isLoading, scrollToBottom);
+watch(messages, () => scrollToBottom(), { deep: true });
+watch(isLoading, () => scrollToBottom());
 watch(isOpen, (open) => {
     if (open) {
-        scrollToBottom();
+        scrollToBottom(true);
+
+        return;
     }
+
+    void stopActiveResponse();
 });
 
 onBeforeUnmount(() => {
+    const requestId = activeRequestId.value;
+    void Promise.all([
+        stop(),
+        cancelActiveServerRequest(requestId),
+    ]);
+
     if (scrollFrame) {
         cancelAnimationFrame(scrollFrame);
     }
@@ -317,7 +418,7 @@ onBeforeUnmount(() => {
                                 Start a new chat?
                             </AlertDialogTitle>
                             <AlertDialogDescription class="text-sm leading-6 text-slate-600 dark:text-slate-400">
-                                This will clear the current conversation.
+                                This will clear the current session conversation.
                             </AlertDialogDescription>
                         </div>
                         <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -340,6 +441,7 @@ onBeforeUnmount(() => {
                     class="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-slate-50/60 scroll-smooth dark:bg-slate-950/35"
                     aria-live="polite"
                     aria-label="AI conversation"
+                    @scroll.passive="handleConversationScroll"
                 >
                     <div v-if="messages.length === 0" class="px-4 py-8 sm:px-6 sm:py-10">
                         <div class="mx-auto w-full max-w-2xl text-center">
@@ -374,12 +476,33 @@ onBeforeUnmount(() => {
                         <TypingIndicator v-if="isLoading && messages[messages.length - 1]?.role === 'user'" />
                     </div>
 
-                    <div v-if="error" class="mx-4 mb-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 sm:mx-6 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300">
+                    <div
+                        v-if="completionNotice"
+                        class="mx-4 mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 sm:mx-6 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200"
+                        role="status"
+                        aria-live="polite"
+                    >
+                        <AlertCircle class="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+                        <p>{{ completionNotice }}</p>
+                    </div>
+
+                    <div
+                        v-if="error"
+                        class="mx-4 mb-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 sm:mx-6 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300"
+                        role="alert"
+                        aria-live="assertive"
+                    >
                         <AlertCircle class="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
                         <div class="flex-1">
                             <p class="font-semibold">Something went wrong</p>
                             <p class="mt-1">{{ errorMessage }}</p>
-                            <button type="button" class="mt-2 inline-flex items-center gap-1.5 font-semibold hover:underline" @click="regenerate()">
+                            <button
+                                type="button"
+                                class="mt-2 inline-flex items-center gap-1.5 font-semibold hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                                :disabled="isLoading"
+                                :aria-disabled="isLoading"
+                                @click="retryLastMessage"
+                            >
                                 <RefreshCw class="h-3.5 w-3.5" aria-hidden="true" />
                                 Try again
                             </button>

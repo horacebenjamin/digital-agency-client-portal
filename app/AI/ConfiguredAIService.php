@@ -11,8 +11,8 @@ class ConfiguredAIService implements AIService
         return $this->provider->complete($prompt, $options);
     }
 
-    public function streamText(string $prompt, callable $onChunk, array $options = []): void
+    public function streamText(string $prompt, callable $onChunk, array $options = []): AIStreamResult
     {
-        $this->provider->stream($prompt, $onChunk, $options);
+        return $this->provider->stream($prompt, $onChunk, $options);
     }
 }

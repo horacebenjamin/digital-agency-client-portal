@@ -4,8 +4,11 @@ namespace App\AI\Providers;
 
 use App\AI\AIProvider;
 use App\AI\AIProviderException;
+use App\AI\AIStreamCancelledException;
+use App\AI\AIStreamResult;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
+use JsonException;
 use Throwable;
 
 class OllamaProvider implements AIProvider
@@ -63,7 +66,7 @@ class OllamaProvider implements AIProvider
         return $text;
     }
 
-    public function stream(string $prompt, callable $onChunk, array $options = []): void
+    public function stream(string $prompt, callable $onChunk, array $options = []): AIStreamResult
     {
         $baseUrl = rtrim((string) config('ai.providers.ollama.base_url'), '/');
         $model = (string) ($options['model'] ?? config('ai.providers.ollama.model'));
@@ -101,6 +104,49 @@ class OllamaProvider implements AIProvider
 
             $body = $response->toPsrResponse()->getBody();
             $buffer = '';
+            $completed = false;
+            $finishReason = null;
+            $evaluatedTokens = null;
+            $hasContent = false;
+
+            $consumeLine = function (string $line) use (
+                $onChunk,
+                &$completed,
+                &$finishReason,
+                &$evaluatedTokens,
+                &$hasContent,
+            ): void {
+                $line = trim($line);
+
+                if ($line === '') {
+                    return;
+                }
+
+                try {
+                    $decoded = json_decode($line, true, flags: JSON_THROW_ON_ERROR);
+                } catch (JsonException $exception) {
+                    throw new AIProviderException('Ollama returned an invalid streaming response.', previous: $exception);
+                }
+
+                if (! is_array($decoded)) {
+                    throw new AIProviderException('Ollama returned an invalid streaming response.');
+                }
+
+                if (is_string($decoded['response'] ?? null) && $decoded['response'] !== '') {
+                    $hasContent = true;
+                    $onChunk($decoded['response']);
+                }
+
+                if (($decoded['done'] ?? false) === true) {
+                    $completed = true;
+                    $finishReason = is_string($decoded['done_reason'] ?? null)
+                        ? $decoded['done_reason']
+                        : null;
+                    $evaluatedTokens = is_int($decoded['eval_count'] ?? null)
+                        ? $decoded['eval_count']
+                        : null;
+                }
+            };
 
             while (! $body->eof()) {
                 $buffer .= $body->read(1024);
@@ -108,19 +154,35 @@ class OllamaProvider implements AIProvider
                 while (($newlinePosition = strpos($buffer, "\n")) !== false) {
                     $line = substr($buffer, 0, $newlinePosition);
                     $buffer = substr($buffer, $newlinePosition + 1);
-                    $decoded = json_decode($line, true);
-
-                    if (is_array($decoded) && is_string($decoded['response'] ?? null) && $decoded['response'] !== '') {
-                        $onChunk($decoded['response']);
-                    }
+                    $consumeLine($line);
                 }
             }
 
-            $decoded = json_decode($buffer, true);
+            $consumeLine($buffer);
 
-            if (is_array($decoded) && is_string($decoded['response'] ?? null) && $decoded['response'] !== '') {
-                $onChunk($decoded['response']);
+            if (! $completed) {
+                throw new AIProviderException('Ollama ended the stream before reporting completion.');
             }
+
+            if (! $hasContent) {
+                throw new AIProviderException('Ollama returned an empty streaming response.');
+            }
+
+            $configuredTokenLimit = isset($options['num_predict'])
+                ? (int) $options['num_predict']
+                : null;
+            $reachedLengthLimit = $finishReason === 'length'
+                || ($finishReason === null
+                    && $configuredTokenLimit !== null
+                    && $configuredTokenLimit > 0
+                    && $evaluatedTokens !== null
+                    && $evaluatedTokens >= $configuredTokenLimit);
+
+            return $reachedLengthLimit
+                ? AIStreamResult::lengthLimited()
+                : AIStreamResult::completed();
+        } catch (AIStreamCancelledException|AIProviderException $exception) {
+            throw $exception;
         } catch (Throwable $exception) {
             throw new AIProviderException('The AI provider streaming request failed.', previous: $exception);
         }

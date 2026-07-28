@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\AI\AIProvider;
 use App\AI\AIProviderException;
 use App\AI\AIService;
+use App\AI\AIStreamResult;
 use App\AI\ConfiguredAIService;
 use App\Jobs\GenerateProjectSummary;
 use App\Models\Client;
@@ -90,7 +91,10 @@ class AIProjectSummaryTest extends TestCase
                 return 'The project is progressing well with launch items outstanding.';
             }
 
-            public function streamText(string $prompt, callable $onChunk, array $options = []): void {}
+            public function streamText(string $prompt, callable $onChunk, array $options = []): AIStreamResult
+            {
+                return AIStreamResult::completed();
+            }
         };
 
         $service = new AIProjectSummaryService($ai, app(ProjectActivityTimeline::class));
@@ -133,7 +137,10 @@ class AIProjectSummaryTest extends TestCase
                 throw new AIProviderException('Ollama is unavailable. Check that the Ollama service is running.');
             }
 
-            public function streamText(string $prompt, callable $onChunk, array $options = []): void {}
+            public function streamText(string $prompt, callable $onChunk, array $options = []): AIStreamResult
+            {
+                return AIStreamResult::completed();
+            }
         });
 
         (new GenerateProjectSummary($project->id))->handle(app(AIProjectSummaryService::class));
@@ -155,7 +162,10 @@ class AIProjectSummaryTest extends TestCase
                 return $this->summary;
             }
 
-            public function streamText(string $prompt, callable $onChunk, array $options = []): void {}
+            public function streamText(string $prompt, callable $onChunk, array $options = []): AIStreamResult
+            {
+                return AIStreamResult::completed();
+            }
         };
     }
 

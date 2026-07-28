@@ -7,6 +7,7 @@ export const restoreNewChatTriggerFocus = async (focusTrigger) => {
 export const resetChatSession = async ({
     isStreaming,
     stopStream,
+    cancelServerRequest = async () => {},
     waitForStreamToSettle,
     clearMessages,
     clearComposer,
@@ -14,7 +15,10 @@ export const resetChatSession = async ({
     focusComposer,
 }) => {
     if (isStreaming()) {
-        await stopStream();
+        await Promise.all([
+            stopStream(),
+            cancelServerRequest(),
+        ]);
         await waitForStreamToSettle();
     }
 

@@ -42,6 +42,7 @@ Route::middleware(['auth', 'verified', 'client.portal'])->group(function () {
     Route::get('/project-files/{projectFile}/download', [ClientProjectController::class, 'downloadFile'])->name('client.project-files.download');
     Route::get('/projects/{project}', [ClientProjectController::class, 'show'])->name('client.projects.show');
     Route::post('/projects/{project}/chat', [ClientProjectController::class, 'chat'])->name('client.projects.chat');
+    Route::post('/projects/{project}/chat/cancel', [ClientProjectController::class, 'cancelChat'])->name('client.projects.chat.cancel');
     Route::get('/support-tickets', [ClientSupportTicketController::class, 'index'])->name('client.support-tickets.index');
     Route::get('/support-tickets/create', [ClientSupportTicketController::class, 'create'])->name('client.support-tickets.create');
     Route::post('/support-tickets', [ClientSupportTicketController::class, 'store'])->name('client.support-tickets.store');
