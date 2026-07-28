@@ -16,8 +16,7 @@ class AIProjectSummaryService
     public function __construct(
         private readonly AIService $ai,
         private readonly ProjectActivityTimeline $timeline,
-    ) {
-    }
+    ) {}
 
     public function generate(Project $project): string
     {
@@ -51,17 +50,31 @@ Project data:
 PROMPT;
     }
 
-    private function projectContext(Project $project): string
+    public function projectContext(Project $project, bool $includeSummary = false): string
     {
-        return collect([
+        $hasStoredSummary = $includeSummary && filled($project->ai_summary);
+
+        $sections = [
             'Project Information' => $this->projectInformation($project),
-            'Recent Project Updates' => $this->recentProjectUpdates($project),
-            'Recent Project Files' => $this->recentProjectFiles($project),
-            'Open Support Tickets' => $this->openSupportTickets($project),
-            'Recent Public Ticket Replies' => $this->recentPublicTicketReplies($project),
-            'Outstanding Payment Requests' => $this->outstandingPaymentRequests($project),
-            'Recent Activity Timeline' => $this->recentActivityTimeline($project),
-        ])->map(fn (array $lines, string $heading): string => $this->section($heading, $lines))
+        ];
+
+        if ($hasStoredSummary) {
+            $sections['Latest AI Project Summary (Internal)'] = [$project->ai_summary];
+        } else {
+            $sections['Recent Project Updates'] = $this->recentProjectUpdates($project);
+        }
+
+        $sections['Recent Project Files'] = $this->recentProjectFiles($project);
+        $sections['Open Support Tickets'] = $this->openSupportTickets($project);
+
+        if (! $hasStoredSummary) {
+            $sections['Recent Public Ticket Replies'] = $this->recentPublicTicketReplies($project);
+        }
+
+        $sections['Outstanding Payment Requests'] = $this->outstandingPaymentRequests($project);
+        $sections['Recent Activity Timeline'] = $this->recentActivityTimeline($project);
+
+        return collect($sections)->map(fn (array $lines, string $heading): string => $this->section($heading, $lines))
             ->implode("\n\n");
     }
 
@@ -190,7 +203,7 @@ PROMPT;
      */
     private function recentActivityTimeline(Project $project): array
     {
-        return collect($this->timeline->forProject($project, 10))
+        return collect($this->timeline->forProject($project, 8))
             ->map(fn (array $item): string => sprintf(
                 '%s: %s - %s%s',
                 $item['occurred_at'] ?? 'Date unknown',

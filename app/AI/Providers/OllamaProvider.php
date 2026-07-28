@@ -63,9 +63,72 @@ class OllamaProvider implements AIProvider
         return $text;
     }
 
+    public function stream(string $prompt, callable $onChunk, array $options = []): void
+    {
+        $baseUrl = rtrim((string) config('ai.providers.ollama.base_url'), '/');
+        $model = (string) ($options['model'] ?? config('ai.providers.ollama.model'));
+        $timeout = (int) config('ai.providers.ollama.timeout', 60);
+
+        $this->extendExecutionTime($timeout);
+
+        $modelOptions = [
+            'temperature' => $options['temperature'] ?? 0.2,
+        ];
+
+        if (isset($options['num_predict'])) {
+            $modelOptions['num_predict'] = $options['num_predict'];
+        }
+
+        $payload = [
+            'model' => $model,
+            'prompt' => $prompt,
+            'stream' => true,
+            'options' => $modelOptions,
+        ];
+
+        if (array_key_exists('think', $options)) {
+            $payload['think'] = $options['think'];
+        }
+
+        try {
+            $response = Http::timeout($timeout)
+                ->withOptions(['stream' => true])
+                ->post("{$baseUrl}/api/generate", $payload);
+
+            if ($response->failed()) {
+                throw new AIProviderException('Ollama returned an error: '.$response->body());
+            }
+
+            $body = $response->toPsrResponse()->getBody();
+            $buffer = '';
+
+            while (! $body->eof()) {
+                $buffer .= $body->read(1024);
+
+                while (($newlinePosition = strpos($buffer, "\n")) !== false) {
+                    $line = substr($buffer, 0, $newlinePosition);
+                    $buffer = substr($buffer, $newlinePosition + 1);
+                    $decoded = json_decode($line, true);
+
+                    if (is_array($decoded) && is_string($decoded['response'] ?? null) && $decoded['response'] !== '') {
+                        $onChunk($decoded['response']);
+                    }
+                }
+            }
+
+            $decoded = json_decode($buffer, true);
+
+            if (is_array($decoded) && is_string($decoded['response'] ?? null) && $decoded['response'] !== '') {
+                $onChunk($decoded['response']);
+            }
+        } catch (Throwable $exception) {
+            throw new AIProviderException('The AI provider streaming request failed.', previous: $exception);
+        }
+    }
+
     private function extendExecutionTime(int $timeout): void
     {
-        if (! function_exists('set_time_limit')) {
+        if (! function_exists('set_time_limit') || app()->runningInConsole()) {
             return;
         }
 

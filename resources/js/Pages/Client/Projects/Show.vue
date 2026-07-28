@@ -1,7 +1,7 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
+import AIProjectAssistant from '@/Components/AI/AIProjectAssistant.vue';
 
 const props = defineProps({
     project: {
@@ -9,122 +9,6 @@ const props = defineProps({
         required: true,
     },
 });
-
-const aiSummary = ref(props.project.ai_summary || '');
-const aiSummaryError = ref(props.project.ai_summary_error || '');
-const aiSummaryStatus = ref(props.project.ai_summary_status || 'idle');
-const aiSummaryGeneratedAt = ref(props.project.ai_summary_generated_at || '');
-const aiSummaryHasNewActivity = ref(
-    props.project.ai_summary_has_new_activity || false,
-);
-const isAiSummaryExpanded = ref(false);
-const aiSummaryLoading = computed(() => aiSummaryStatus.value === 'generating');
-const formattedAiSummaryGeneratedAt = computed(() => {
-    if (!aiSummaryGeneratedAt.value) {
-        return '';
-    }
-
-    const generatedAt = new Date(aiSummaryGeneratedAt.value);
-
-    if (Number.isNaN(generatedAt.getTime())) {
-        return '';
-    }
-
-    return new Intl.DateTimeFormat(undefined, {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    }).format(generatedAt);
-});
-const aiSummarySections = computed(() =>
-    aiSummary.value
-        .split(/\n\s*\n/)
-        .map((section) => section.trim())
-        .filter(Boolean)
-        .map((section) => {
-            const heading = section.match(/^\*\*(.+)\*\*$/s);
-
-            return heading
-                ? { type: 'heading', text: heading[1] }
-                : { type: 'paragraph', text: section.replaceAll('**', '') };
-        }),
-);
-let aiSummaryPoll = null;
-
-const stopAiSummaryPolling = () => {
-    if (aiSummaryPoll) {
-        clearInterval(aiSummaryPoll);
-        aiSummaryPoll = null;
-    }
-};
-
-const applyAiSummaryPayload = (payload) => {
-    aiSummaryStatus.value = payload.status || 'idle';
-    aiSummary.value = payload.summary || '';
-    aiSummaryError.value = payload.message || '';
-    aiSummaryGeneratedAt.value = payload.generated_at || '';
-
-    if (aiSummaryStatus.value !== 'generating') {
-        stopAiSummaryPolling();
-    }
-
-    if (aiSummaryStatus.value === 'completed' && aiSummary.value) {
-        aiSummaryHasNewActivity.value = false;
-        isAiSummaryExpanded.value = true;
-    }
-};
-
-const pollAiSummary = async () => {
-    try {
-        const response = await window.axios.get(
-            props.project.ai_summary_status_url,
-        );
-
-        applyAiSummaryPayload(response.data);
-    } catch (error) {
-        aiSummaryStatus.value = 'failed';
-        aiSummaryError.value =
-            error.response?.data?.message ||
-            'The AI summary status could not be checked right now.';
-        stopAiSummaryPolling();
-    }
-};
-
-const startAiSummaryPolling = () => {
-    if (aiSummaryPoll) {
-        return;
-    }
-
-    aiSummaryPoll = setInterval(pollAiSummary, 3000);
-};
-
-const generateAiSummary = async () => {
-    aiSummaryStatus.value = 'generating';
-    aiSummaryError.value = '';
-    isAiSummaryExpanded.value = false;
-
-    try {
-        const response = await window.axios.post(props.project.ai_summary_url);
-
-        applyAiSummaryPayload(response.data);
-
-        if (aiSummaryStatus.value === 'generating') {
-            startAiSummaryPolling();
-        }
-    } catch (error) {
-        aiSummaryStatus.value = 'failed';
-        aiSummaryError.value =
-            error.response?.data?.message ||
-            'The AI summary could not be generated right now.';
-    }
-};
-
-onMounted(() => {
-    if (aiSummaryStatus.value === 'generating') {
-        startAiSummaryPolling();
-    }
-});
-
-onBeforeUnmount(stopAiSummaryPolling);
 
 const statusBadgeClasses = (status) => {
     return (
@@ -375,110 +259,6 @@ const updateBadgeClasses = (status) => {
                     <section
                         class="overflow-hidden rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
                     >
-                        <div
-                            class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between lg:flex-col"
-                        >
-                            <div>
-                                <h3
-                                    class="text-lg font-semibold text-slate-950 dark:text-slate-100"
-                                >
-                                    AI Project Summary
-                                </h3>
-                                <p
-                                    class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400"
-                                >
-                                    Generate a concise readout from recent
-                                    project activity, tickets, files, and
-                                    billing.
-                                </p>
-                            </div>
-
-                            <div class="flex flex-wrap gap-2">
-                                <span
-                                    v-if="aiSummaryHasNewActivity && !aiSummaryLoading"
-                                    class="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
-                                >
-                                    New activity available
-                                </span>
-
-                                <button
-                                    v-if="aiSummary && !aiSummaryLoading"
-                                    type="button"
-                                    class="inline-flex w-fit items-center rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                                    :aria-expanded="isAiSummaryExpanded"
-                                    aria-controls="ai-project-summary-content"
-                                    @click="isAiSummaryExpanded = !isAiSummaryExpanded"
-                                >
-                                    {{
-                                        isAiSummaryExpanded
-                                            ? 'Hide Summary'
-                                            : 'View Saved Summary'
-                                    }}
-                                </button>
-
-                                <button
-                                    type="button"
-                                    :disabled="aiSummaryLoading"
-                                    class="inline-flex w-fit items-center rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
-                                    @click="generateAiSummary"
-                                >
-                                    {{
-                                        aiSummaryLoading
-                                            ? 'Generating...'
-                                            : aiSummary
-                                              ? 'Regenerate Summary'
-                                              : 'Generate Summary'
-                                    }}
-                                </button>
-                            </div>
-                        </div>
-
-                        <div
-                            v-if="aiSummaryLoading"
-                            class="mt-4 rounded-md border border-cyan-200 bg-cyan-50 p-4 text-sm leading-6 text-cyan-800 dark:border-cyan-900/60 dark:bg-cyan-950/30 dark:text-cyan-200"
-                        >
-                            Your summary is being generated in the background.
-                        </div>
-
-                        <div
-                            v-if="aiSummaryError"
-                            class="mt-4 rounded-md border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200"
-                        >
-                            {{ aiSummaryError }}
-                        </div>
-
-                        <div
-                            v-if="aiSummary && isAiSummaryExpanded"
-                            id="ai-project-summary-content"
-                            class="mt-4 flex flex-col gap-3 text-sm leading-6 text-slate-600 dark:text-slate-300"
-                        >
-                            <p
-                                v-if="formattedAiSummaryGeneratedAt"
-                                class="text-xs text-slate-500 dark:text-slate-400"
-                            >
-                                Generated {{ formattedAiSummaryGeneratedAt }}
-                            </p>
-
-                            <template
-                                v-for="(section, index) in aiSummarySections"
-                                :key="index"
-                            >
-                                <h4
-                                    v-if="section.type === 'heading'"
-                                    class="font-semibold text-slate-950 dark:text-slate-100"
-                                >
-                                    {{ section.text }}
-                                </h4>
-                                <p v-else class="whitespace-pre-line">
-                                    {{ section.text }}
-                                </p>
-                            </template>
-                        </div>
-                    </section>
-
-                    <section
-                        class="overflow-hidden rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-                    >
                         <h3
                             class="text-lg font-semibold text-slate-950 dark:text-slate-100"
                         >
@@ -630,5 +410,7 @@ const updateBadgeClasses = (status) => {
                 </aside>
             </div>
         </div>
+
+        <AIProjectAssistant :project="project" />
     </AuthenticatedLayout>
 </template>

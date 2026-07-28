@@ -2,11 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\AI\AIService;
 use App\Models\Project;
 use App\Models\ProjectFile;
 use App\Models\ProjectUpdate;
+use App\Services\AIProjectSummaryService;
 use App\Services\ProjectActivityTimeline;
-use App\Services\ProjectSummaryFreshness;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
@@ -39,7 +40,6 @@ class ClientProjectController extends Controller
     public function show(
         Project $project,
         ProjectActivityTimeline $timeline,
-        ProjectSummaryFreshness $summaryFreshness,
     ): Response {
         Gate::authorize('view', $project);
 
@@ -66,13 +66,6 @@ class ClientProjectController extends Controller
                 'updates_count' => $project->updates_count,
                 'files_count' => $project->files_count,
                 'support_tickets_count' => $project->support_tickets_count,
-                'ai_summary_url' => route('client.projects.ai-summary', $project),
-                'ai_summary_status_url' => route('client.projects.ai-summary.show', $project),
-                'ai_summary' => $project->ai_summary,
-                'ai_summary_status' => $project->ai_summary_status,
-                'ai_summary_error' => $project->ai_summary_error,
-                'ai_summary_generated_at' => $project->ai_summary_generated_at?->toIso8601String(),
-                'ai_summary_has_new_activity' => $summaryFreshness->hasNewActivity($project),
                 'files' => $project->files
                     ->map(fn (ProjectFile $file): array => $this->serializeProjectFile($file))
                     ->values(),
@@ -82,6 +75,101 @@ class ClientProjectController extends Controller
                 'timeline' => $timeline->forProject($project),
             ],
         ]);
+    }
+
+    public function chat(
+        Request $request,
+        Project $project,
+        AIService $aiService,
+        AIProjectSummaryService $summaryService
+    ): StreamedResponse {
+        Gate::authorize('view', $project);
+
+        $request->validate([
+            'messages' => 'required|array',
+            'messages.*.content' => 'required|string',
+            'messages.*.role' => 'required|string|in:user,assistant',
+        ]);
+
+        $messages = $request->input('messages');
+        $lastMessage = end($messages)['content'];
+
+        $context = $summaryService->projectContext($project, true);
+        $prompt = $this->buildAssistantPrompt($context, $lastMessage, array_slice($messages, 0, -1));
+
+        return response()->stream(function () use ($aiService, $prompt) {
+            $aiService->streamText($prompt, function (string $chunk) {
+                echo $chunk;
+                if (ob_get_level() > 0) {
+                    ob_flush();
+                }
+                flush();
+            }, [
+                'temperature' => 0.1,
+                'num_predict' => 1200,
+                'think' => false,
+            ]);
+        }, 200, [
+            'Cache-Control' => 'no-cache',
+            'Content-Type' => 'text/plain; charset=utf-8',
+            'X-Accel-Buffering' => 'no',
+        ]);
+    }
+
+    private function buildAssistantPrompt(string $context, string $question, array $history): string
+    {
+        $historyStr = collect($history)
+            ->map(fn ($m) => str($m['role'])->title().': '.$m['content'])
+            ->implode("\n\n");
+
+        return <<<PROMPT
+You are an AI project assistant.
+
+Answer ONLY using the supplied project information.
+
+If information is missing, clearly state that.
+
+Do not invent facts.
+
+Be concise and business focused.
+
+Use readable Markdown when it improves the answer:
+- Headings are optional. Short factual answers should normally have no heading.
+- Longer or structured answers may use one concise heading.
+- Any heading must match the user's requested intent. Use these likely mappings when a heading improves the answer:
+  - Current project status: Project Status
+  - Next actions or priorities: Recommended Next Actions
+  - Payments: Payment Status
+  - Risks or blockers: Project Risks
+  - Support tickets: Support Ticket Summary
+  - Completed work: Recent Progress or Completed Features
+  - Client-facing message: Client Update
+- Never use Client Update unless the user asks for client-facing content, such as a message they can send or share with a client. A request about project status, priorities, or next actions is not by itself a request for a client update.
+- Use bullet lists and separate paragraphs when they make a longer answer easier to scan.
+- When asked for a client update, use 2-3 short prose paragraphs and follow this Markdown shape (the blank lines are required):
+
+## Client Update
+
+[A concise paragraph on current status.]
+
+[A concise paragraph on recent progress and outstanding items.]
+
+[A concise paragraph on next steps.]
+
+Do not replace those paragraphs with a bullet list; use bullets only for distinct actions or issues.
+- Do not force a heading or template onto simple questions; answer them directly and concisely.
+
+Project Context:
+{$context}
+
+Conversation History:
+{$historyStr}
+
+Answer the latest user question based on the context and history.
+
+User Question:
+{$question}
+PROMPT;
     }
 
     public function downloadFile(ProjectFile $projectFile): StreamedResponse
